@@ -3,15 +3,18 @@ import { motion } from 'framer-motion';
 import { Grid3X3, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NFTCard } from '@/components/ui/nft-card';
-import { mockNFTs } from '@/data/mockData';
 import { ElementType, TierType, ELEMENTS, TIERS } from '@/config/contracts';
 import { cn } from '@/lib/utils';
+import { useAccount } from 'wagmi';
+import { useUserNFTs } from '@/hooks/useContracts';
 
 export default function Inventory() {
+  const { address } = useAccount();
+  const { balance, nfts, isLoading } = useUserNFTs(address);
   const [filterElement, setFilterElement] = useState<ElementType | null>(null);
   const [filterTier, setFilterTier] = useState<TierType | null>(null);
 
-  const filteredNFTs = mockNFTs.filter((nft) => {
+  const filteredNFTs = nfts.filter((nft) => {
     if (filterElement && nft.element !== filterElement) return false;
     if (filterTier && nft.tier !== filterTier) return false;
     return true;
@@ -32,7 +35,7 @@ export default function Inventory() {
         <div className="flex items-center gap-2">
           <Grid3X3 className="w-5 h-5 text-muted-foreground" />
           <span className="text-sm text-muted-foreground font-mono">
-            {filteredNFTs.length} / {mockNFTs.length} items
+            {balance} NFTs owned
           </span>
         </div>
       </motion.div>
@@ -101,24 +104,36 @@ export default function Inventory() {
       </motion.div>
 
       {/* NFT Grid */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
-      >
-        {filteredNFTs.map((nft, index) => (
-          <motion.div
-            key={nft.tokenId}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-          >
-            <NFTCard nft={nft} variant="inventory" />
-          </motion.div>
-        ))}
-      </motion.div>
+      {isLoading ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+        >
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="glass-panel h-64 animate-pulse" />
+          ))}
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+        >
+          {filteredNFTs.map((nft, index) => (
+            <motion.div
+              key={nft.tokenId}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+            >
+              <NFTCard nft={nft} variant="inventory" />
+            </motion.div>
+          ))}
+        </motion.div>
+      )}
 
-      {filteredNFTs.length === 0 && (
+      {!isLoading && filteredNFTs.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

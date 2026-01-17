@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useAccount, useBalance } from 'wagmi';
 import {
   LayoutDashboard,
   Grid3X3,
@@ -11,7 +12,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { mockWalletData } from '@/data/mockData';
+import { ConnectButton } from '@/components/ui/connect-button';
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -23,6 +24,20 @@ const navItems = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const { address, isConnected } = useAccount();
+  const { data: balance } = useBalance({
+    address: address,
+  });
+
+  const formatAddress = (addr: string) => {
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  const formatBalance = (bal: string | undefined) => {
+    if (!bal) return '0.0000';
+    const num = parseFloat(bal);
+    return num.toFixed(4);
+  };
 
   return (
     <aside className="w-64 h-screen bg-sidebar border-r border-sidebar-border flex flex-col">
@@ -79,25 +94,29 @@ export function AppSidebar() {
 
       {/* Wallet Status */}
       <div className="p-4 border-t border-sidebar-border">
-        <div className="glass-panel p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-            <span className="text-xs text-muted-foreground">Connected</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-              <Wallet className="w-4 h-4 text-primary" />
+        {isConnected && address ? (
+          <div className="glass-panel p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+              <span className="text-xs text-muted-foreground">Connected</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-mono text-foreground truncate">
-                {mockWalletData.address}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                <span className="font-mono">{mockWalletData.balance}</span> ETH
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                <Wallet className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-mono text-foreground truncate">
+                  {formatAddress(address)}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-mono">{formatBalance(balance?.formatted)}</span> ETH
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <ConnectButton />
+        )}
       </div>
     </aside>
   );

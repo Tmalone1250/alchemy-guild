@@ -1,15 +1,20 @@
 import { http, createConfig } from 'wagmi';
 import { sepolia } from 'wagmi/chains';
-import { injected, metaMask } from 'wagmi/connectors';
+import { injected, walletConnect, coinbaseWallet } from 'wagmi/connectors';
 
 export const wagmiConfig = createConfig({
   chains: [sepolia],
   connectors: [
     injected(),
-    metaMask(),
+    walletConnect({
+      projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
+    }),
+    coinbaseWallet({
+      appName: 'Alchemy Vault',
+    }),
   ],
   transports: {
-    [sepolia.id]: http(),
+    [sepolia.id]: http(import.meta.env.VITE_INFURA_RPC_URL || 'https://rpc.sepolia.org'),
   },
 });
 

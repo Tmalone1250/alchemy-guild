@@ -1,25 +1,69 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FlaskConical, Plus, Sparkles, AlertTriangle, X } from 'lucide-react';
+import { FlaskConical, Plus, Sparkles, AlertTriangle, X, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { NFTCard } from '@/components/ui/nft-card';
 import { ElementIcon } from '@/components/ui/element-icon';
-import { mockNFTs } from '@/data/mockData';
 import { CRAFT_FEE } from '@/config/contracts';
 import { NFT } from '@/types/nft';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useAccount } from 'wagmi';
+import { useAlchemist, useUserNFTs } from '@/hooks/useContracts';
+import { ContractSetup } from '@/components/ContractSetup';
+
+const RECIPES = [
+  { inputs: ['Water', 'Lightning', 'Lightning'], output: 'Plasma', outputTier: 2 },
+  { inputs: ['Wind', 'Wind', 'Lightning'], output: 'Tornado', outputTier: 2 },
+  { inputs: ['Wind', 'Ice', 'Ice'], output: 'Blizzard', outputTier: 2 },
+  { inputs: ['Water', 'Water', 'Wind'], output: 'Tsunami', outputTier: 2 },
+  { inputs: ['Earth', 'Earth', 'Fire'], output: 'Quake', outputTier: 2 },
+  { inputs: ['Wind', 'Fire', 'Fire'], output: 'Inferno', outputTier: 2 },
+  { inputs: ['Lightning', 'Plasma', 'Plasma'], output: 'Holy', outputTier: 3 },
+  { inputs: ['Water', 'Tsunami', 'Tsunami'], output: 'Dark', outputTier: 3 },
+  { inputs: ['Earth', 'Quake', 'Quake'], output: 'Gravity', outputTier: 3 },
+  { inputs: ['Wind', 'Tornado', 'Tornado'], output: 'Time', outputTier: 3 },
+  { inputs: ['Ice', 'Blizzard', 'Blizzard'], output: 'Bio', outputTier: 3 },
+  { inputs: ['Fire', 'Inferno', 'Inferno'], output: 'Spirit', outputTier: 3 },
+];
 
 export default function Lab() {
+  const { address } = useAccount();
+  const { nfts, isLoading } = useUserNFTs(address);
   const [selectedSlots, setSelectedSlots] = useState<(NFT | null)[]>([null, null, null]);
   const [showSelector, setShowSelector] = useState<number | null>(null);
-  const [isCrafting, setIsCrafting] = useState(false);
+  const [showRecipes, setShowRecipes] = useState(false);
+  const { craft, isPending, isConfirming, isSuccess, error } = useAlchemist();
 
-  const availableNFTs = mockNFTs.filter(
-    (nft) => !nft.staked && !selectedSlots.some((slot) => slot?.tokenId === nft.tokenId)
-  );
+  const availableNFTs = nfts.filter((nft) => !nft.staked);
 
   const canCraft = selectedSlots.every((slot) => slot !== null);
+
+  const getRecipeOutput = () => {
+    if (!canCraft) return null;
+    
+    const elementToNumber: Record<string, number> = {
+      'Earth': 0, 'Fire': 3, 'Water': 1, 'Wind': 2, 'Ice': 4, 'Lightning': 5,
+      'Plasma': 6, 'Tornado': 7, 'Blizzard': 8, 'Tsunami': 9, 'Quake': 10,
+      'Inferno': 11, 'Holy': 12, 'Dark': 13, 'Gravity': 14, 'Time': 15,
+      'Bio': 16, 'Spirit': 17,
+    };
+    
+    const selectedNums = selectedSlots
+      .filter((slot): slot is NFT => slot !== null)
+      .map((slot) => elementToNumber[slot.element])
+      .sort((a, b) => a - b);
+    
+    const recipe = RECIPES.find((r) => {
+      const recipeNums = [...r.inputs]
+        .map((el) => elementToNumber[el])
+        .sort((a, b) => a - b);
+      return JSON.stringify(recipeNums) === JSON.stringify(selectedNums);
+    });
+    return recipe || null;
+  };
+
+  const recipeOutput = getRecipeOutput();
 
   const handleSelectNFT = (slotIndex: number, nft: NFT) => {
     const newSlots = [...selectedSlots];
@@ -37,16 +81,35 @@ export default function Lab() {
   const handleCraft = async () => {
     if (!canCraft) return;
 
-    setIsCrafting(true);
-    toast.loading('Transmuting Elements...', { id: 'craft' });
+    const tokenIds = selectedSlots
+      .filter((slot): slot is NFT => slot !== null)
+      .map((slot) => BigInt(slot.tokenId)) as [bigint, bigint, bigint];
 
-    // Simulate transaction
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    toast.success('Transmutation complete! New Silver Element created!', { id: 'craft' });
-    setIsCrafting(false);
-    setSelectedSlots([null, null, null]);
+    try {
+      toast.loading('Confirm transaction in your wallet...', { id: 'craft' });
+      await craft(tokenIds);
+      toast.loading('Transmuting Elements...', { id: 'craft' });
+    } catch (err: any) {
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'craft' });
+      } else {
+        toast.error('Failed to craft', { id: 'craft' });
+      }
+    }
   };
+
+  useEffect(() => {
+    if (isSuccess) {
+      toast.success('Transmutation complete! New Element created!', { id: 'craft' });
+      setSelectedSlots([null, null, null]);
+    }
+  }, [isSuccess]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error('Transaction failed', { id: 'craft' });
+    }
+  }, [error]);
 
   return (
     <div className="p-8 space-y-8">
@@ -58,6 +121,9 @@ export default function Lab() {
         <h1 className="text-3xl font-bold text-foreground">The Lab</h1>
         <p className="text-muted-foreground mt-1">Combine three Elements to craft a higher-tier NFT</p>
       </motion.div>
+
+      {/* Contract Setup Alert */}
+      {address && <ContractSetup />}
 
       {/* Synthesis Table */}
       <motion.div
@@ -134,24 +200,54 @@ export default function Lab() {
 
           {/* Output Preview */}
           <motion.div
-            animate={canCraft ? { scale: [1, 1.02, 1] } : {}}
+            animate={canCraft && recipeOutput ? { scale: [1, 1.02, 1] } : {}}
             transition={{ repeat: Infinity, duration: 2 }}
             className={cn(
               'w-36 h-48 rounded-xl flex flex-col items-center justify-center gap-3 border-2',
-              canCraft
+              canCraft && recipeOutput
                 ? 'border-primary bg-gradient-to-br from-primary/20 to-primary/5 gold-glow'
+                : canCraft && !recipeOutput
+                ? 'border-destructive bg-destructive/5'
                 : 'border-dashed border-border bg-muted/20'
             )}
           >
-            <div className="text-4xl">✨</div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-foreground">
-                {canCraft ? 'Ready to Craft!' : 'Mystery Element'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {canCraft ? 'Tier 2 NFT' : 'Select 3 Elements'}
-              </p>
-            </div>
+            {recipeOutput ? (
+              <>
+                <div className="text-4xl">✨</div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    {recipeOutput.output}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Tier {recipeOutput.outputTier} NFT
+                  </p>
+                </div>
+              </>
+            ) : canCraft ? (
+              <>
+                <div className="text-4xl">❌</div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-destructive">
+                    Invalid Recipe
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Check recipes
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-4xl">✨</div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    Mystery Element
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Select 3 Elements
+                  </p>
+                </div>
+              </>
+            )}
           </motion.div>
         </div>
 
@@ -161,21 +257,34 @@ export default function Lab() {
           <span>Requires <span className="font-mono text-primary">{CRAFT_FEE} ETH</span> Protocol Fee</span>
         </div>
 
-        {/* Transmute Button */}
+        {/* Recipes Button */}
         <div className="mt-6 flex justify-center">
           <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowRecipes(true)}
+            className="flex items-center gap-2"
+          >
+            <Info className="w-4 h-4" />
+            View Recipes
+          </Button>
+        </div>
+
+        {/* Transmute Button */}
+        <div className="mt-4 flex justify-center">
+          <Button
             size="lg"
-            disabled={!canCraft || isCrafting}
+            disabled={!canCraft || !recipeOutput || isPending || isConfirming}
             onClick={handleCraft}
             className={cn(
               'px-12',
-              canCraft && 'animate-glow'
+              canCraft && recipeOutput && 'animate-glow'
             )}
           >
-            {isCrafting ? (
+            {isPending || isConfirming ? (
               <span className="flex items-center gap-2">
                 <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                Transmuting...
+                {isPending ? 'Confirm in wallet...' : 'Transmuting...'}
               </span>
             ) : (
               <span className="flex items-center gap-2">
@@ -214,22 +323,86 @@ export default function Lab() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {availableNFTs.map((nft) => (
-                  <NFTCard
-                    key={nft.tokenId}
-                    nft={nft}
-                    variant="crafting"
-                    onSelect={() => handleSelectNFT(showSelector, nft)}
-                  />
-                ))}
-              </div>
-
-              {availableNFTs.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground">No Elements available for crafting</p>
+              {isLoading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="glass-panel h-48 animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {availableNFTs.map((nft) => (
+                    <NFTCard
+                      key={nft.tokenId}
+                      nft={nft}
+                      variant="crafting"
+                      onSelect={() => handleSelectNFT(showSelector, nft)}
+                    />
+                  ))}
                 </div>
               )}
+
+              {!isLoading && availableNFTs.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground">No Elements available for crafting</p>
+                  <p className="text-xs text-muted-foreground mt-2">Unstake your Elements in the Vault to use them here</p>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Recipes Modal */}
+      <AnimatePresence>
+        {showRecipes && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowRecipes(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="glass-panel p-6 max-w-3xl w-full max-h-[80vh] overflow-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-foreground">Crafting Recipes</h3>
+                <button
+                  onClick={() => setShowRecipes(false)}
+                  className="w-8 h-8 rounded-full bg-muted flex items-center justify-center hover:bg-muted-foreground/20"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {RECIPES.map((recipe, idx) => (
+                  <div key={idx} className="border border-border rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          {recipe.inputs.map((input, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{input}</span>
+                              {i < recipe.inputs.length - 1 && <span className="text-muted-foreground">+</span>}
+                            </div>
+                          ))}
+                        </div>
+                        <Sparkles className="w-4 h-4 text-primary mx-2" />
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-foreground">{recipe.output}</p>
+                        <p className="text-xs text-muted-foreground">Tier {recipe.outputTier}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </motion.div>
           </motion.div>
         )}

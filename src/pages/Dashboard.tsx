@@ -3,9 +3,35 @@ import { Vault, TrendingUp, Layers, Coins } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
 import { MintWidget } from '@/components/dashboard/MintWidget';
 import { ActivityTable } from '@/components/dashboard/ActivityTable';
-import { mockProtocolStats } from '@/data/mockData';
+import { useAccount, useReadContract } from 'wagmi';
+import { CONTRACTS } from '@/config/contracts';
+import { ELEMENT_NFT_ABI, YIELD_VAULT_ABI } from '@/config/abis';
 
 export default function Dashboard() {
+  const { address } = useAccount();
+
+  const { data: totalSupply } = useReadContract({
+    address: CONTRACTS.ElementNFT.address,
+    abi: ELEMENT_NFT_ABI,
+    functionName: 'totalSupply',
+  });
+
+  const { data: totalWeight } = useReadContract({
+    address: CONTRACTS.YieldVault.address,
+    abi: YIELD_VAULT_ABI,
+    functionName: 'sTotalWeight',
+  });
+
+  const { data: accRewardPerWeight } = useReadContract({
+    address: CONTRACTS.YieldVault.address,
+    abi: YIELD_VAULT_ABI,
+    functionName: 'sAccRewardPerWeight',
+  });
+
+  const formatYieldIndex = (value: bigint | undefined) => {
+    if (!value) return '1.0000';
+    return (Number(value) / 1e18).toFixed(4);
+  };
   return (
     <div className="p-8 space-y-8">
       {/* Page Header */}
@@ -21,28 +47,27 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Value Locked"
-          value={`$${mockProtocolStats.tvl}`}
+          value="$0.00"
           subtitle="Across all vaults"
           icon={Vault}
           variant="gold"
-          trend={{ value: '+12.4%', positive: true }}
         />
         <StatCard
           title="Global Yield Index"
-          value={mockProtocolStats.globalYieldIndex}
+          value={formatYieldIndex(accRewardPerWeight)}
           subtitle="Current multiplier"
           icon={TrendingUp}
           trend={{ value: '+2.1%', positive: true }}
         />
         <StatCard
-          title="Total Staked"
-          value={mockProtocolStats.totalStaked.toLocaleString()}
-          subtitle="NFTs in vault"
+          title="Total Staked Weight"
+          value={totalWeight ? totalWeight.toString() : '0'}
+          subtitle="Staking power"
           icon={Layers}
         />
         <StatCard
           title="Total Minted"
-          value={mockProtocolStats.totalMinted.toLocaleString()}
+          value={totalSupply ? totalSupply.toString() : '0'}
           subtitle="Elements created"
           icon={Coins}
         />

@@ -2,11 +2,18 @@ import { motion } from 'framer-motion';
 import { Vault as VaultIcon, ArrowRight, TrendingUp } from 'lucide-react';
 import { NFTCard } from '@/components/ui/nft-card';
 import { Progress } from '@/components/ui/progress';
-import { mockNFTs } from '@/data/mockData';
 import { TIERS } from '@/config/contracts';
 import { toast } from 'sonner';
+import { useAccount } from 'wagmi';
+import { useYieldVault, useStakedTokens } from '@/hooks/useContracts';
+import { useEffect } from 'react';
 
 export default function Vault() {
+  const { address } = useAccount();
+  const { stakedTokens } = useStakedTokens(address);
+  const { stake, unstake, claimYield, isPending, isConfirming, isSuccess } = useYieldVault();
+
+  const mockNFTs: any[] = [];
   const stakedNFTs = mockNFTs.filter((nft) => nft.staked);
   const walletNFTs = mockNFTs.filter((nft) => !nft.staked);
 
@@ -14,19 +21,33 @@ export default function Vault() {
     return acc + parseFloat(nft.pendingYield || '0');
   }, 0);
 
-  const handleAction = (action: 'stake' | 'unstake' | 'claim', tokenId: number) => {
-    const actionLabels = {
-      stake: 'Staking',
-      unstake: 'Unstaking',
-      claim: 'Claiming yield for',
-    };
-    
-    toast.loading(`${actionLabels[action]} Element #${tokenId}...`, { id: action });
-    
-    setTimeout(() => {
-      toast.success(`Successfully ${action}ed Element #${tokenId}!`, { id: action });
-    }, 2000);
+  const handleAction = async (action: 'stake' | 'unstake' | 'claim', tokenId: number) => {
+    try {
+      toast.loading(`Confirm transaction in your wallet...`, { id: action });
+      
+      if (action === 'stake') {
+        await stake(BigInt(tokenId), 1);
+      } else if (action === 'unstake') {
+        await unstake(BigInt(tokenId));
+      } else if (action === 'claim') {
+        await claimYield(BigInt(tokenId));
+      }
+      
+      toast.loading(`Processing ${action}...`, { id: action });
+    } catch (err: any) {
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: action });
+      } else {
+        toast.error('Transaction failed', { id: action });
+      }
+    }
   };
+
+  useEffect(() => {
+    if (isSuccess) {
+      toast.success('Transaction successful!', { id: 'action' });
+    }
+  }, [isSuccess]);
 
   return (
     <div className="p-8 space-y-8">

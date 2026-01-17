@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, Mountain, Flame, Droplets, Wind, Snowflake, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ElementType, ELEMENTS } from '@/config/contracts';
 import { toast } from 'sonner';
+import { useElementNFT } from '@/hooks/useContracts';
 
 const elementIcons = {
   Earth: Mountain,
@@ -26,21 +27,39 @@ const elementStyles: Record<ElementType, string> = {
 
 export function MintWidget() {
   const [selectedElement, setSelectedElement] = useState<ElementType | null>(null);
-  const [isMinting, setIsMinting] = useState(false);
+  const { publicMint, isPending, isConfirming, isSuccess, error } = useElementNFT();
 
   const handleMint = async () => {
     if (!selectedElement) return;
     
-    setIsMinting(true);
-    toast.loading('Minting your Element NFT...', { id: 'mint' });
-    
-    // Simulate transaction
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    toast.success(`Successfully minted ${selectedElement} Element!`, { id: 'mint' });
-    setIsMinting(false);
-    setSelectedElement(null);
+    const elementIndex = ELEMENTS.findIndex(el => el.name === selectedElement);
+    if (elementIndex === -1) return;
+
+    try {
+      toast.loading('Confirm transaction in your wallet...', { id: 'mint' });
+      await publicMint(elementIndex);
+      toast.loading('Minting your Element NFT...', { id: 'mint' });
+    } catch (err: any) {
+      if (err.message?.includes('User rejected')) {
+        toast.error('Transaction rejected', { id: 'mint' });
+      } else {
+        toast.error('Failed to mint NFT', { id: 'mint' });
+      }
+    }
   };
+
+  useEffect(() => {
+    if (isSuccess) {
+      toast.success(`Successfully minted ${selectedElement} Element!`, { id: 'mint' });
+      setSelectedElement(null);
+    }
+  }, [isSuccess, selectedElement]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error('Transaction failed', { id: 'mint' });
+    }
+  }, [error]);
 
   return (
     <motion.div
@@ -87,16 +106,16 @@ export function MintWidget() {
       <Button
         className="w-full"
         size="lg"
-        disabled={!selectedElement || isMinting}
+        disabled={!selectedElement || isPending || isConfirming}
         onClick={handleMint}
       >
-        {isMinting ? (
+        {isPending || isConfirming ? (
           <span className="flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-            Minting...
+            {isPending ? 'Confirm in wallet...' : 'Minting...'}
           </span>
         ) : selectedElement ? (
-          `Mint ${selectedElement} Element`
+          `Mint ${selectedElement} Element (0.002 ETH)`
         ) : (
           'Select an Element'
         )}
