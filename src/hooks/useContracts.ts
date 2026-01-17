@@ -8,7 +8,7 @@ import {
 import { NFT } from '@/types/nft';
 import { useMemo } from 'react';
 
-const ELEMENT_NAMES = ['Earth', 'Fire', 'Water', 'Wind', 'Ice', 'Lightning'] as const;
+const ELEMENT_NAMES = ['Earth', 'Water', 'Wind', 'Fire', 'Ice', 'Lightning'] as const;
 const TIER_NAMES = ['Lead', 'Silver', 'Gold'] as const;
 
 export function useElementNFT() {
