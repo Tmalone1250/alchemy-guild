@@ -39,28 +39,27 @@ export default function Lab() {
 
   const canCraft = selectedSlots.every((slot) => slot !== null);
 
+  const elementToNumber: Record<string, number> = {
+    'Earth': 0, 'Water': 1, 'Wind': 2, 'Fire': 3, 'Ice': 4, 'Lightning': 5,
+    'Plasma': 6, 'Tornado': 7, 'Blizzard': 8, 'Tsunami': 9, 'Quake': 10,
+    'Inferno': 11, 'Holy': 12, 'Dark': 13, 'Gravity': 14, 'Time': 15,
+    'Bio': 16, 'Spirit': 17,
+  };
+
   const getRecipeOutput = () => {
     if (!canCraft) return null;
-    
-    const elementToNumber: Record<string, number> = {
-      'Earth': 0, 'Fire': 3, 'Water': 1, 'Wind': 2, 'Ice': 4, 'Lightning': 5,
-      'Plasma': 6, 'Tornado': 7, 'Blizzard': 8, 'Tsunami': 9, 'Quake': 10,
-      'Inferno': 11, 'Holy': 12, 'Dark': 13, 'Gravity': 14, 'Time': 15,
-      'Bio': 16, 'Spirit': 17,
-    };
     
     const selectedNums = selectedSlots
       .filter((slot): slot is NFT => slot !== null)
       .map((slot) => elementToNumber[slot.element])
       .sort((a, b) => a - b);
     
-    const recipe = RECIPES.find((r) => {
+    return RECIPES.find((r) => {
       const recipeNums = [...r.inputs]
         .map((el) => elementToNumber[el])
         .sort((a, b) => a - b);
       return JSON.stringify(recipeNums) === JSON.stringify(selectedNums);
-    });
-    return recipe || null;
+    }) || null;
   };
 
   const recipeOutput = getRecipeOutput();

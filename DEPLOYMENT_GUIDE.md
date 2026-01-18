@@ -1,5 +1,21 @@
 # Smart Contract Deployment & Setup Guide
 
+## When to Redeploy Contracts
+
+### AlchemistContract Must Reference Correct ElementNFT
+
+If you redeploy **ElementNFT**, you MUST also **redeploy AlchemistContract** with the new ElementNFT address because `I_ELEMENT_NFT` is an immutable variable.
+
+Steps:
+1. Deploy new ElementNFT contract
+2. Copy the new ElementNFT address
+3. Deploy AlchemistContract, passing the new ElementNFT address to constructor
+4. Update `CONTRACTS.ElementNFT.address` in `contracts.ts` (frontend)
+5. Update `CONTRACTS.Alchemist.address` in `contracts.ts` (if Alchemist address changed)
+6. Re-grant BURNER_ROLE and MINTER_ROLE to the new AlchemistContract
+
+---
+
 ## Problem: NFTs Not Burning During Crafting
 
 If you notice that the Alchemist crafting is minting new NFTs but **not burning the 3 input NFTs**, it's because the `AlchemistContract` hasn't been granted the necessary roles on the `ElementNFT` contract.

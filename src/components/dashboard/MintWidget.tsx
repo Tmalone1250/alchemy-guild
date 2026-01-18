@@ -16,11 +16,11 @@ const elementIcons = {
   Lightning: Zap,
 };
 
-const elementStyles: Record<ElementType, string> = {
+const elementStyles: Record<string, string> = {
   Earth: 'bg-element-earth/10 border-element-earth/30 hover:bg-element-earth/20 text-element-earth',
-  Fire: 'bg-element-fire/10 border-element-fire/30 hover:bg-element-fire/20 text-element-fire',
   Water: 'bg-element-water/10 border-element-water/30 hover:bg-element-water/20 text-element-water',
   Wind: 'bg-element-wind/10 border-element-wind/30 hover:bg-element-wind/20 text-element-wind',
+  Fire: 'bg-element-fire/10 border-element-fire/30 hover:bg-element-fire/20 text-element-fire',
   Ice: 'bg-element-ice/10 border-element-ice/30 hover:bg-element-ice/20 text-element-ice',
   Lightning: 'bg-element-lightning/10 border-element-lightning/30 hover:bg-element-lightning/20 text-element-lightning',
 };
@@ -79,7 +79,7 @@ export function MintWidget() {
 
       {/* Element Grid */}
       <div className="grid grid-cols-3 gap-3 mb-6">
-        {ELEMENTS.map((element) => {
+        {ELEMENTS.filter(el => el.id < 6).map((element) => {
           const Icon = elementIcons[element.name];
           const isSelected = selectedElement === element.name;
 
