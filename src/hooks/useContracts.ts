@@ -1,9 +1,9 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useReadContracts } from 'wagmi';
 import { CONTRACTS } from '@/config/contracts';
-import { 
-  ELEMENT_NFT_ABI, 
-  ALCHEMIST_CONTRACT_ABI, 
-  YIELD_VAULT_ABI 
+import {
+  ELEMENT_NFT_ABI,
+  ALCHEMIST_CONTRACT_ABI,
+  YIELD_VAULT_ABI
 } from '@/config/abis';
 import { NFT } from '@/types/nft';
 import { useMemo } from 'react';
@@ -32,6 +32,52 @@ export function useElementNFT() {
     isSuccess,
     error,
     hash,
+  };
+}
+
+export function useApproveNFT() {
+  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+
+  const approve = async (to: string, tokenId: bigint) => {
+    return writeContract({
+      address: CONTRACTS.ElementNFT.address,
+      abi: ELEMENT_NFT_ABI,
+      functionName: 'approve',
+      args: [to, tokenId],
+    });
+  };
+
+  const setApprovalForAll = async (operator: string, approved: boolean) => {
+    return writeContract({
+      address: CONTRACTS.ElementNFT.address,
+      abi: ELEMENT_NFT_ABI,
+      functionName: 'setApprovalForAll',
+      args: [operator, approved],
+    });
+  };
+
+  return {
+    approve,
+    setApprovalForAll,
+    isPending,
+    isConfirming,
+    isSuccess,
+    error,
+    hash,
+  };
+}
+
+export function useNFTApproval(owner: string, operator: string) {
+  const { data: isApprovedForAll } = useReadContract({
+    address: CONTRACTS.ElementNFT.address,
+    abi: ELEMENT_NFT_ABI,
+    functionName: 'isApprovedForAll',
+    args: [owner, operator],
+  });
+
+  return {
+    isApprovedForAll: isApprovedForAll as boolean,
   };
 }
 
@@ -146,11 +192,34 @@ export function useUserNFTs(address?: string) {
       .map((item) => item.result as bigint);
   }, [tokenIdsData]);
 
+  // Get staked token IDs
+  const { data: stakedTokenIds } = useReadContract({
+    address: CONTRACTS.YieldVault.address,
+    abi: YIELD_VAULT_ABI,
+    functionName: 'getUserStakedTokens',
+    args: address ? [address] : undefined,
+  });
+
+  const stakedTokenSet = useMemo(() => {
+    if (!stakedTokenIds) return new Set<string>();
+    return new Set((stakedTokenIds as bigint[]).map((id) => id.toString()));
+  }, [stakedTokenIds]);
+
+  // Combine wallet and staked token IDs
+  const allTokenIds = useMemo(() => {
+    const fromWallet = tokenIds || [];
+    const fromStaking = stakedTokenIds ? (stakedTokenIds as bigint[]) : [];
+
+    // Create unique set of IDs
+    const uniqueIds = new Set([...fromWallet, ...fromStaking].map(id => id.toString()));
+    return Array.from(uniqueIds).map(id => BigInt(id));
+  }, [tokenIds, stakedTokenIds]);
+
   // Batch read token details (tier and element)
   const tokenDetailsContracts = useMemo(() => {
-    if (tokenIds.length === 0) return [];
+    if (allTokenIds.length === 0) return [];
     const contracts: any[] = [];
-    tokenIds.forEach((tokenId) => {
+    allTokenIds.forEach((tokenId) => {
       contracts.push({
         address: CONTRACTS.ElementNFT.address,
         abi: ELEMENT_NFT_ABI,
@@ -165,24 +234,11 @@ export function useUserNFTs(address?: string) {
       });
     });
     return contracts;
-  }, [tokenIds]);
+  }, [allTokenIds]);
 
   const { data: tokenDetailsData } = useReadContracts({
     contracts: tokenDetailsContracts as any,
   });
-
-  // Get staked token IDs
-  const { data: stakedTokenIds } = useReadContract({
-    address: CONTRACTS.YieldVault.address,
-    abi: YIELD_VAULT_ABI,
-    functionName: 'getUserStakedTokens',
-    args: address ? [address] : undefined,
-  });
-
-  const stakedTokenSet = useMemo(() => {
-    if (!stakedTokenIds) return new Set<string>();
-    return new Set((stakedTokenIds as bigint[]).map((id) => id.toString()));
-  }, [stakedTokenIds]);
 
   // Batch read pending rewards for staked tokens
   const pendingRewardContracts = useMemo(() => {
@@ -214,16 +270,21 @@ export function useUserNFTs(address?: string) {
   }, [stakedTokenIds, pendingRewardsData]);
 
   const nfts: NFT[] = useMemo(() => {
-    if (!tokenDetailsData || tokenIds.length === 0) return [];
+    if (!tokenDetailsData || allTokenIds.length === 0) return [];
 
-    return tokenIds.map((tokenId, index) => {
+    return allTokenIds.map((tokenId, index) => {
       const tierIndex = index * 2;
       const elementIndex = index * 2 + 1;
 
       const tierData = tokenDetailsData[tierIndex];
       const elementData = tokenDetailsData[elementIndex];
 
-      if (!tierData || tierData.status !== 'success' || !elementData || elementData.status !== 'success') {
+      if (!tierData || !elementData) {
+        return null;
+      }
+
+      // Handle potential fetch failures
+      if (tierData.status !== 'success' || elementData.status !== 'success') {
         return null;
       }
 
@@ -246,7 +307,7 @@ export function useUserNFTs(address?: string) {
 
       return nft;
     }).filter((nft): nft is NFT => nft !== null);
-  }, [tokenIds, tokenDetailsData, stakedTokenSet, pendingRewardsMap]);
+  }, [allTokenIds, tokenDetailsData, stakedTokenSet, pendingRewardsMap]);
 
   return {
     balance: balanceNumber,
