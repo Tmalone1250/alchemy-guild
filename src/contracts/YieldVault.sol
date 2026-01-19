@@ -257,18 +257,18 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
             }
         }
 
-        uint256 balance0 = WETH.balanceOf(address(this));
-        uint256 balance1 = USDC.balanceOf(address(this));
+        uint256 balance0 = USDC.balanceOf(address(this));
+        uint256 balance1 = WETH.balanceOf(address(this));
 
         // Approve Uniswap V3 Position Manager to spend tokens
-        WETH.approve(address(POSITION_MANAGER), balance0);
-        USDC.approve(address(POSITION_MANAGER), balance1);
+        USDC.approve(address(POSITION_MANAGER), balance0);
+        WETH.approve(address(POSITION_MANAGER), balance1);
 
         // Rebalance Mint Logic
         INonfungiblePositionManager.MintParams
             memory params = INonfungiblePositionManager.MintParams({
-                token0: address(WETH),
-                token1: address(USDC),
+                token0: address(USDC),
+                token1: address(WETH),
                 fee: 3000,
                 tickLower: tickLower,
                 tickUpper: tickUpper,

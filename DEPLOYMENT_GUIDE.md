@@ -92,7 +92,7 @@ cast send 0xC612a77AF5C1108f354a40e70677df19D3781396 \
 3. Connect your wallet (must be contract owner)
 4. Call `grantRole()` function with:
    - role: `0x3c11d16cbaffd01df69ce1c404f6340ee057498f5f00246190ea54220576a848` (BURNER_ROLE)
-   - account: `0x55814944334b230c7818Df81434c868b01D82fD7` (AlchemistContract)
+   - account: `0xBFD26E604161781473b6ba885989ddeA95989F98` (AlchemistContract)
 5. Repeat for MINTER_ROLE: `0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6`
 
 ## Verification

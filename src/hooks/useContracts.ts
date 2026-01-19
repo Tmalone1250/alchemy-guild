@@ -263,7 +263,7 @@ export function useUserNFTs(address?: string) {
       if (rewardData && rewardData.status === 'success') {
         const reward = rewardData.result as bigint;
         // Convert from wei to USDC (6 decimals)
-        map.set(tokenId.toString(), (Number(reward) / 1e6).toFixed(2));
+        map.set(tokenId.toString(), (Number(reward) / 1e6).toFixed(6));
       }
     });
     return map;

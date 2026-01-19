@@ -2,25 +2,37 @@
 
 export const CONTRACTS = {
   ElementNFT: {
-    address: '0x055fdAE960FF3d9d60F160173B7629Bc1440d99A' as const,
+    address: '0xC3C0Dc08c005670F66acafb955B73588537cA900' as const,
     chainId: 11155111, // Sepolia
   },
   YieldVault: {
-    address: '0x15e771dA9D40074db4Deb0e81EE4Ca4aC0a4937F' as const,
+    address: '0xC2e73bD133a9eB6517EDc342F0B86AAfeE61EAa9' as const,
     chainId: 11155111,
   },
   Alchemist: {
-    address: '0xdB4Ab958339613246Ca056582dBdE6C1FD3a6dC6' as const,
+    address: '0xbd259CD7214BcAefaE489F340645DEe4139861CC' as const,
     chainId: 11155111,
   },
   Treasury: {
-    address: '0xBBDb619847CFC6F7e1F0f909684fE7d1418667B6' as const,
+    address: '0x196889637506fA702beBc0B708D72b470C25544D' as const,
+    chainId: 11155111,
+  },
+  Pool: { // WETH/USDC 0.3%
+    address: '0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50' as const,
+    chainId: 11155111,
+  },
+  WETH: {
+    address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14' as const,
+    chainId: 11155111,
+  },
+  USDC: {
+    address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238' as const,
     chainId: 11155111,
   },
 } as const;
 
 // Element Types
-export type ElementType = 'Earth' | 'Water' | 'Wind' | 'Fire' | 'Ice' | 'Lightning' | 
+export type ElementType = 'Earth' | 'Water' | 'Wind' | 'Fire' | 'Ice' | 'Lightning' |
   'Plasma' | 'Tornado' | 'Blizzard' | 'Tsunami' | 'Quake' | 'Inferno' |
   'Holy' | 'Dark' | 'Gravity' | 'Time' | 'Bio' | 'Spirit';
 

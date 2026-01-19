@@ -10,7 +10,7 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAccount } from 'wagmi';
 import { useAlchemist, useUserNFTs } from '@/hooks/useContracts';
-import { ContractSetup } from '@/components/ContractSetup';
+
 
 const RECIPES = [
   { inputs: ['Water', 'Lightning', 'Lightning'], output: 'Plasma', outputTier: 2 },
@@ -48,12 +48,12 @@ export default function Lab() {
 
   const getRecipeOutput = () => {
     if (!canCraft) return null;
-    
+
     const selectedNums = selectedSlots
       .filter((slot): slot is NFT => slot !== null)
       .map((slot) => elementToNumber[slot.element])
       .sort((a, b) => a - b);
-    
+
     return RECIPES.find((r) => {
       const recipeNums = [...r.inputs]
         .map((el) => elementToNumber[el])
@@ -121,8 +121,7 @@ export default function Lab() {
         <p className="text-muted-foreground mt-1">Combine three Elements to craft a higher-tier NFT</p>
       </motion.div>
 
-      {/* Contract Setup Alert */}
-      {address && <ContractSetup />}
+
 
       {/* Synthesis Table */}
       <motion.div
@@ -206,8 +205,8 @@ export default function Lab() {
               canCraft && recipeOutput
                 ? 'border-primary bg-gradient-to-br from-primary/20 to-primary/5 gold-glow'
                 : canCraft && !recipeOutput
-                ? 'border-destructive bg-destructive/5'
-                : 'border-dashed border-border bg-muted/20'
+                  ? 'border-destructive bg-destructive/5'
+                  : 'border-dashed border-border bg-muted/20'
             )}
           >
             {recipeOutput ? (
