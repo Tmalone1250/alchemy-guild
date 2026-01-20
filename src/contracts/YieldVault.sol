@@ -220,7 +220,9 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         uint256 fee1 = WETH.balanceOf(address(this)) - balance1Before;  // fee1 = WETH fees
 
         // Transmute WETH into USDC (The Alchemy Swap)
-        // Only swap if we have at least 0.001 WETH (prevents tiny swaps that revert)
+        // TEMPORARILY DISABLED: Swap is reverting on Sepolia, investigating root cause
+        // For now, WETH fees accumulate in vault and only USDC fees are distributed
+        /*
         if (fee1 > 0.001 ether) {  // fee1 = WETH fees
             WETH.approve(address(SWAP_ROUTER), fee1);
 
@@ -240,7 +242,8 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
             fee0 += SWAP_ROUTER.exactInputSingle(swapParams);
             fee1 = 0; // WETH is now gone
         }
-        // If WETH fees are too small, keep them in the vault for next rebalance
+        */
+        // Skip swap for now - only distribute USDC fees (fee0)
 
         // Tax the consolidated USDC total (10% to Paymaster)
         uint256 tax = 0;
@@ -259,11 +262,16 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
             }
         }
 
+
         uint256 balance0 = USDC.balanceOf(address(this));
         uint256 balance1 = WETH.balanceOf(address(this));
 
+        // Keep 20% USDC as reserve for yield claims (only deposit 80% into position)
+        uint256 usdcForPosition = (balance0 * 80) / 100;
+        uint256 usdcReserve = balance0 - usdcForPosition;
+
         // Approve Uniswap V3 Position Manager to spend tokens
-        USDC.approve(address(POSITION_MANAGER), balance0);
+        USDC.approve(address(POSITION_MANAGER), usdcForPosition);
         WETH.approve(address(POSITION_MANAGER), balance1);
 
         // Rebalance Mint Logic
@@ -274,7 +282,7 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
                 fee: 3000,
                 tickLower: tickLower,
                 tickUpper: tickUpper,
-                amount0Desired: balance0,
+                amount0Desired: usdcForPosition,  // Only 80% of USDC
                 amount1Desired: balance1,
                 amount0Min: 0,
                 amount1Min: 0,
@@ -301,10 +309,17 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         // Update reward debt
         sRewardDebt[tokenId] = sAccRewardPerWeight;
 
-        // Payout USDC rewards to msg.sender
-        USDC.safeTransfer(msg.sender, pendingReward);
 
-        emit YieldClaimed(msg.sender, tokenId, pendingReward);
+        // Payout USDC rewards to msg.sender
+        // Cap reward at available USDC (in case most is locked in Uniswap position)
+        uint256 availableUsdc = USDC.balanceOf(address(this));
+        uint256 rewardToPay = pendingReward > availableUsdc ? availableUsdc : pendingReward;
+        
+        require(rewardToPay > 0, "No USDC available in vault");
+        
+        USDC.safeTransfer(msg.sender, rewardToPay);
+
+        emit YieldClaimed(msg.sender, tokenId, rewardToPay);
     }
 
     // Emergency Withdraw function - Pull base liquidity out to owner
