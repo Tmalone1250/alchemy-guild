@@ -2,19 +2,19 @@
 
 export const CONTRACTS = {
   ElementNFT: {
-    address: '0xdD73468bbAeb1610985FD66Db81aEa82348F1d3F' as const,
+    address: '0x88D2774F170618cCab6915BC92D1DBF1B0359F50' as const,
     chainId: 11155111, // Sepolia
   },
   YieldVault: {
-    address: '0x13B64DF8CE89e70ebCA99cDa028AcFe38d37e84d' as const,
+    address: '0x9aa6602838B525175A4738cf0A894Cf9dC67f580' as const,
     chainId: 11155111,
   },
   Alchemist: {
-    address: '0x1439EB1D56E2ed926db83944E3D4D5356621fb11' as const,
+    address: '0x7C7F4f4F263dC857e0ad3E5681eaaB327b00E3f6' as const,
     chainId: 11155111,
   },
   Treasury: {
-    address: '0x9cF5d6E09E5BAc7bDA49531c4e038D8F89dA44CA' as const,
+    address: '0x64FE8F4c1BB6b2DE42198A484853fEa1d35Af32c' as const,
     chainId: 11155111,
   },
   Pool: { // WETH/USDC 0.3%
