@@ -220,30 +220,18 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         uint256 fee1 = WETH.balanceOf(address(this)) - balance1Before;  // fee1 = WETH fees
 
         // Transmute WETH into USDC (The Alchemy Swap)
-        // TEMPORARILY DISABLED: Swap is reverting on Sepolia, investigating root cause
-        // For now, WETH fees accumulate in vault and only USDC fees are distributed
-        /*
-        if (fee1 > 0.001 ether) {  // fee1 = WETH fees
-            WETH.approve(address(SWAP_ROUTER), fee1);
-
-            ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter
-                .ExactInputSingleParams({
-                    tokenIn: address(WETH),
-                    tokenOut: address(USDC),
-                    fee: 3000,
-                    recipient: address(this),
-                    deadline: block.timestamp,
-                    amountIn: fee1,
-                    amountOutMinimum: 0,
-                    sqrtPriceLimitX96: 0
-                });
-
-            // The USDC we get from the swap is added to our fee0 total
-            fee0 += SWAP_ROUTER.exactInputSingle(swapParams);
-            fee1 = 0; // WETH is now gone
+        // Use try-catch so rebalance never fails even if swap doesn't work
+        if (fee1 > 0.001 ether) {
+            try this._attemptSwap(fee1) returns (uint256 usdcReceived) {
+                // Swap succeeded - add USDC to fee pool
+                fee0 += usdcReceived;
+                fee1 = 0;  // Mark WETH as consumed
+            } catch {
+                // Swap failed - keep WETH in vault, will accumulate for next rebalance
+                // Don't revert the entire rebalance
+            }
         }
-        */
-        // Skip swap for now - only distribute USDC fees (fee0)
+        // If fee1 < 0.001 ether, too small to swap, will accumulate
 
         // Tax the consolidated USDC total (10% to Paymaster)
         uint256 tax = 0;
@@ -293,6 +281,30 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         (sLastPositionId, , , ) = POSITION_MANAGER.mint(params);
 
         emit Rebalanced(sLastPositionId, fee0, netFeeUsdc, tax);
+    }
+
+    // Internal function to attempt WETH → USDC swap
+    // Called via try-catch so failures don't revert rebalance
+    function _attemptSwap(uint256 wethAmount) external returns (uint256) {
+        require(msg.sender == address(this), "Internal only");
+        
+        // Approve swap router
+        WETH.approve(address(SWAP_ROUTER), wethAmount);
+        
+        // Execute swap
+        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter
+            .ExactInputSingleParams({
+                tokenIn: address(WETH),
+                tokenOut: address(USDC),
+                fee: 3000,
+                recipient: address(this),
+                deadline: block.timestamp + 300,  // 5 minute buffer
+                amountIn: wethAmount,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            });
+        
+        return SWAP_ROUTER.exactInputSingle(swapParams);
     }
 
     // claimYield() function

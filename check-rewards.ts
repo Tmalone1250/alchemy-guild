@@ -4,7 +4,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 const RPC_URL = process.env.VITE_INFURA_RPC_URL;
-const VAULT_ADDRESS = "0x9aa6602838B525175A4738cf0A894Cf9dC67f580";
+const VAULT_ADDRESS = "0xDC684AD1406BdcEd18c2224d75a53c6B5FAea773";
 
 const VAULT_ABI = [
     "function sAccRewardPerWeight() view returns (uint256)",
