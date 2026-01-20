@@ -5,7 +5,7 @@ dotenv.config();
 
 const RPC_URL = process.env.VITE_INFURA_RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const VAULT_ADDRESS = "0xC2e73bD133a9eB6517EDc342F0B86AAfeE61EAa9";
+const VAULT_ADDRESS = "0x974EE0295be5524c98D2edE3844bA320911c99eE";
 
 const VAULT_ABI = ["function rebalance() external"];
 

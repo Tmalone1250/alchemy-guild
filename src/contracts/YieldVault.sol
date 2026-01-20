@@ -176,8 +176,8 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
     // Automated Liquidity Manager Rebalancing
     function rebalance() external nonReentrant onlyOwner {
         // Snapshot of fees before collecting
-        uint256 balance0Before = WETH.balanceOf(address(this));
-        uint256 balance1Before = USDC.balanceOf(address(this));
+        uint256 balance0Before = USDC.balanceOf(address(this));  // token0 = USDC
+        uint256 balance1Before = WETH.balanceOf(address(this));  // token1 = WETH
 
         // Get current price and set new boundaries
         (, int24 tick, , , , , ) = POOL.slot0();
@@ -216,12 +216,13 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         }
 
         // Identify how much NEW fees were collected
-        uint256 fee0 = WETH.balanceOf(address(this)) - balance0Before;
-        uint256 fee1 = USDC.balanceOf(address(this)) - balance1Before;
+        uint256 fee0 = USDC.balanceOf(address(this)) - balance0Before;  // fee0 = USDC fees
+        uint256 fee1 = WETH.balanceOf(address(this)) - balance1Before;  // fee1 = WETH fees
 
         // Transmute WETH into USDC (The Alchemy Swap)
-        if (fee0 > 0) {
-            WETH.approve(address(SWAP_ROUTER), fee0);
+        // Only swap if we have at least 0.001 WETH (prevents tiny swaps that revert)
+        if (fee1 > 0.001 ether) {  // fee1 = WETH fees
+            WETH.approve(address(SWAP_ROUTER), fee1);
 
             ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter
                 .ExactInputSingleParams({
@@ -230,24 +231,25 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
                     fee: 3000,
                     recipient: address(this),
                     deadline: block.timestamp,
-                    amountIn: fee0,
+                    amountIn: fee1,
                     amountOutMinimum: 0,
                     sqrtPriceLimitX96: 0
                 });
 
-            // The USDC we get from the swap is added to our fee1 total
-            fee1 += SWAP_ROUTER.exactInputSingle(swapParams);
-            fee0 = 0; // WETH is now gone
+            // The USDC we get from the swap is added to our fee0 total
+            fee0 += SWAP_ROUTER.exactInputSingle(swapParams);
+            fee1 = 0; // WETH is now gone
         }
+        // If WETH fees are too small, keep them in the vault for next rebalance
 
         // Tax the consolidated USDC total (10% to Paymaster)
         uint256 tax = 0;
         uint256 netFeeUsdc = 0;
-        if (fee1 > 0) {
-            tax = fee1 / 10;
+        if (fee0 > 0) {  // fee0 is now all USDC (including swapped WETH)
+            tax = fee0 / 10;
             USDC.safeTransfer(PAYMASTER, tax);
 
-            netFeeUsdc = fee1 - tax;
+            netFeeUsdc = fee0 - tax;
 
             // Update rewards in purely USDC terms
             if (sTotalWeight > 0) {
