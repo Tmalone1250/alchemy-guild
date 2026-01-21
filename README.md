@@ -119,13 +119,158 @@ npx tsx volume-bot.ts
 
 ---
 
-## 💎 NFT Tiers
+## 💎 The Elemental Hierarchy
 
-| Tier | Element | Price | Staking Weight | Relative Yield |
-|------|---------|-------|----------------|----------------|
-| 1️⃣ | 🔥 Fire | 10 USDC | 10 | 1x |
-| 2️⃣ | 💧 Water | 30 USDC | 30 | 3x |
-| 3️⃣ | 🌍 Earth | 100 USDC | 100 | 10x |
+Alchemy Guild features **18 unique elements** across three tiers, each with distinct staking power and yield potential.
+
+### Tier Classification
+
+| Tier | Classification | Reward Weight | Elements | Border Color |
+|------|---------------|---------------|----------|--------------|
+| **Tier 1** | � **Lead** (Base Elements) | 10 | 6 elements | Bronze |
+| **Tier 2** | ⚪ **Silver** (Advanced Synthesis) | 30 | 6 elements | Silver |
+| **Tier 3** | 🟡 **Gold** (Transcendent) | 100 | 6 elements | Gold |
+
+### Complete Element Matrix
+
+<table>
+<tr>
+<th>Tier 1 (Lead)</th>
+<th>Tier 2 (Silver)</th>
+<th>Tier 3 (Gold)</th>
+</tr>
+<tr>
+<td>
+
+🌍 **Earth**  
+💧 **Water**  
+💨 **Wind**  
+🔥 **Fire**  
+❄️ **Ice**  
+⚡ **Lightning**
+
+</td>
+<td>
+
+⚛️ **Plasma**  
+🌪️ **Tornado**  
+🌨️ **Blizzard**  
+🌊 **Tsunami**  
+🏔️ **Quake**  
+🌋 **Inferno**
+
+</td>
+<td>
+
+✨ **Holy**  
+🌑 **Dark**  
+🌀 **Gravity**  
+⏰ **Time**  
+🧬 **Bio**  
+👻 **Spirit**
+
+</td>
+</tr>
+</table>
+
+---
+
+## ⚗️ The Crafting Lab (Transmutation)
+
+Transform lower-tier NFTs into higher-tier ones through alchemical fusion. **All crafting requires a 0.002 ETH transmutation cost.**
+
+### The Lead Synthesis (Tier 1 → Tier 2)
+
+Combine **3 Tier 1 NFTs** to create **1 Tier 2 NFT**.
+
+**Example Recipes:**
+- 💧💧💨 Water + Water + Wind → 🌊 **Tsunami**
+- 💨❄️❄️ Wind + Ice + Ice → 🌨️ **Blizzard**
+- 🌍🌍🔥 Earth + Earth + Fire → 🏔️ **Quake**
+- 💧⚡⚡ Water + Lightning + Lightning → ⚛️ **Plasma**
+
+### The Golden Ritual (Tier 2 → Tier 3)
+
+Combine **3 Tier 2 NFTs** to create **1 Tier 3 NFT**.
+
+**Example Recipes:**
+- 🌊🌨️🌨️ Tsunami + Blizzard + Blizzard → ⏰ **Time**
+- 🌋🌋🔥 Inferno + Inferno + Fire → 👻 **Spirit**
+- 🌪️🌪️⚡ Tornado + Tornado + Lightning → ✨ **Holy**
+
+### Crafting Mechanics
+
+```solidity
+function craft(uint256[3] tokenIds) external payable {
+    require(msg.value >= 0.002 ether, "Transmutation fee required");
+    // Burns 3 NFTs → Mints 1 higher-tier NFT
+}
+```
+
+**Key Features:**
+- ✅ **3-to-1 Ratio**: Burn 3 lower-tier → Create 1 higher-tier
+- ✅ **Deflationary**: Reduces total supply with each craft
+- ✅ **Specific Recipes**: Each Tier 2/3 element requires exact ingredient combinations
+- ✅ **Protocol Fee**: 0.002 ETH per transmutation
+
+---
+
+## 📈 Yield Dynamics & Weight Mathematics
+
+### How Rewards Are Calculated
+
+Yields are distributed **pro-rata** based on each NFT's staking weight:
+
+$$
+Reward_{user} = \frac{Weight_{user}}{\sum Weight_{total}} \times Fees_{harvested}
+$$
+
+Where:
+- $Weight_{user}$ = Sum of all staked NFT weights for the user
+- $\sum Weight_{total}$ = Total weight of all staked NFTs in the vault
+- $Fees_{harvested}$ = USDC fees collected from Uniswap trading
+
+### Weight Multipliers
+
+| Tier | Weight | Relative Earning Power |
+|------|--------|----------------------|
+| Tier 1 | 10 | **1x** baseline |
+| Tier 2 | 30 | **3x** more than Tier 1 |
+| Tier 3 | 100 | **10x** more than Tier 1 |
+
+### Example Scenario
+
+**Vault State:**
+- User A: 1× Tier 3 (Gold) NFT = 100 weight
+- User B: 3× Tier 2 (Silver) NFTs = 90 weight
+- User C: 10× Tier 1 (Lead) NFTs = 100 weight
+- **Total Weight:** 290
+
+**Fees Collected:** 100 USDC (after 10% tax to Treasury)
+
+**Distribution:**
+- User A: $(100/290) \times 100 = 34.48$ USDC
+- User B: $(90/290) \times 100 = 31.03$ USDC
+- User C: $(100/290) \times 100 = 34.48$ USDC
+
+> **Key Insight**: User A earns the same as User C, but with **1 NFT vs 10 NFTs**!
+
+### Deflationary Scarcity
+
+Every crafting operation **burns 3 NFTs** to create 1:
+- Total supply decreases by 2 NFTs per craft
+- Higher-tier NFTs become increasingly scarce
+- Remaining stakers capture more yield per NFT over time
+
+$$
+Supply_{new} = Supply_{old} - 2
+$$
+
+This creates a **flywheel effect**:
+1. Users craft to increase individual weight
+2. Total NFT supply decreases
+3. Yield per NFT increases for all stakers
+4. Higher-tier scarcity drives value
 
 ---
 
