@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
 import { ConnectButton } from '@/components/ui/connect-button';
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/inventory', label: 'Inventory', icon: Grid3X3 },
   { path: '/lab', label: 'The Lab', icon: FlaskConical },
   { path: '/vault', label: 'The Vault', icon: Vault },
