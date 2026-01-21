@@ -8,6 +8,17 @@ import {
 import { NFT } from '@/types/nft';
 import { useMemo } from 'react';
 
+// Simple ERC20 ABI for balanceOf
+const ERC20_ABI = [
+  {
+    "inputs": [{ "name": "account", "type": "address" }],
+    "name": "balanceOf",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
+
 const ELEMENT_NAMES = ['Earth', 'Water', 'Wind', 'Fire', 'Ice', 'Lightning', 'Plasma', 'Tornado', 'Blizzard', 'Tsunami', 'Quake', 'Inferno', 'Holy', 'Dark', 'Gravity', 'Time', 'Bio', 'Spirit'] as const;
 const TIER_NAMES = ['Lead', 'Silver', 'Gold'] as const;
 
@@ -240,6 +251,14 @@ export function useUserNFTs(address?: string) {
     contracts: tokenDetailsContracts as any,
   });
 
+  // Read vault's USDC balance to cap pending rewards
+  const { data: vaultUsdcBalance } = useReadContract({
+    address: CONTRACTS.USDC.address,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [CONTRACTS.YieldVault.address],
+  });
+
   // Batch read pending rewards for staked tokens
   const pendingRewardContracts = useMemo(() => {
     if (!stakedTokenIds || (stakedTokenIds as bigint[]).length === 0) return [];
@@ -257,17 +276,40 @@ export function useUserNFTs(address?: string) {
 
   const pendingRewardsMap = useMemo(() => {
     if (!stakedTokenIds || !pendingRewardsData) return new Map<string, string>();
+
+    // Get available USDC balance (same as contract does)
+    const availableUsdc = vaultUsdcBalance ? Number(vaultUsdcBalance) / 1e6 : 0;
+
     const map = new Map<string, string>();
+    let totalPendingRewards = 0;
+
     (stakedTokenIds as bigint[]).forEach((tokenId, index) => {
       const rewardData = pendingRewardsData[index];
       if (rewardData && rewardData.status === 'success') {
-        const reward = rewardData.result as bigint;
-        // Convert from wei to USDC (6 decimals)
-        map.set(tokenId.toString(), (Number(reward) / 1e6).toFixed(6));
+        const uncappedReward = Number(rewardData.result as bigint) / 1e6;
+        totalPendingRewards += uncappedReward;
+      }
+    });
+
+    // Now cap each reward proportionally if total exceeds available
+    (stakedTokenIds as bigint[]).forEach((tokenId, index) => {
+      const rewardData = pendingRewardsData[index];
+      if (rewardData && rewardData.status === 'success') {
+        let reward = Number(rewardData.result as bigint) / 1e6;
+
+        // Cap at available USDC (same logic as contract)
+        if (totalPendingRewards > availableUsdc && availableUsdc > 0) {
+          // Scale down proportionally
+          reward = (reward / totalPendingRewards) * availableUsdc;
+        } else if (reward > availableUsdc) {
+          reward = availableUsdc;
+        }
+
+        map.set(tokenId.toString(), reward.toFixed(6));
       }
     });
     return map;
-  }, [stakedTokenIds, pendingRewardsData]);
+  }, [stakedTokenIds, pendingRewardsData, vaultUsdcBalance]);
 
   const nfts: NFT[] = useMemo(() => {
     if (!tokenDetailsData || allTokenIds.length === 0) return [];

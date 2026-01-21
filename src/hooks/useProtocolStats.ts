@@ -107,7 +107,8 @@ export function useProtocolStats() {
                 allRewardEvents.forEach(e => {
                     if (e.reward) {
                         totalYield += e.reward;
-                        cumulativeYield += parseFloat(formatEther(e.reward));
+                        // USDC has 6 decimals, not 18 like ETH
+                        cumulativeYield += Number(e.reward) / 1e6;
                         yieldHistoryPoints.push({
                             date: `Block ${e.blockNumber}`,
                             value: cumulativeYield
@@ -161,7 +162,8 @@ export function useProtocolStats() {
                 setStats({
                     uniqueHolders: uniqueAddresses.size,
                     totalStaked: stakedTokens.size,
-                    totalYieldClaimed: formatEther(totalYield),
+                    // Format as USDC (6 decimals) not ETH (18 decimals)
+                    totalYieldClaimed: (Number(totalYield) / 1e6).toFixed(6),
                     stakingByTier,
                     yieldHistory: sampledHistory.length > 0 ? sampledHistory : [{ date: 'Start', value: 0 }],
                     isLoading: false,
