@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Sparkles, Wallet, ArrowRight, Shield, Gem, TrendingUp, Lock } from 'lucide-react';
+import { Sparkles, Wallet, ArrowRight, Shield, Gem, TrendingUp, Lock, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAccount } from 'wagmi';
+import { useAccount, useDisconnect } from 'wagmi';
 
 // Alchemical Symbol SVG Paths  
 const SYMBOLS = {
@@ -18,9 +18,11 @@ const RUNES = ["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ", "ᚺ", "�
 const LandingPage = () => {
     const navigate = useNavigate();
     const { address } = useAccount();
+    const { disconnect } = useDisconnect();
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [isTransmuting, setIsTransmuting] = useState(false);
     const [isHoveringCTA, setIsHoveringCTA] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
 
     // Parallax Effect
     useEffect(() => {
