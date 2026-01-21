@@ -1,6 +1,6 @@
 <div align="center">
 
-![Alchemy Guild Logo](./Gemini_Generated_Image_y4irx5y4irx5y4ir.png)
+![Alchemy Guild Logo](./public/logo.png)
 
 # ⚗️ Alchemy Guild
 
@@ -413,13 +413,22 @@ npx tsx manual-seed.ts
 <div align="center">
 
 ### Landing Page
-![Landing Page](./screenshots/landing.png)
+![Landing Page](./public/screenshots/landing-page.png)
 
 ### Dashboard
-![Dashboard](./screenshots/dashboard.png)
+![Dashboard](./public/screenshots/dashboard.png)
 
-### Staking Interface
-![Staking](./screenshots/staking.png)
+### Inventory
+![Inventory](./public/screenshots/inventory.png)
+
+### The Vault (Staking)
+![The Vault](./public/screenshots/the-vault.png)
+
+### The Lab (Crafting)
+![The Lab](./public/screenshots/the-lab.png)
+
+### Analytics
+![Analytics](./public/screenshots/analytics.png)
 
 </div>
 
