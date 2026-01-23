@@ -1,0 +1,10 @@
+== Logs ==
+  Alchemy Ecosystem Deployed!
+  Treasury: 0x338aFAdF24ea53786360BeBa1e969493DdF18cA4
+  ElementNFT: 0x3F6Af5Aa0033929B957cB6Ec4c079a9851a4252B
+  Alchemist: 0xba918adC8DDc40EB8382a024A562aBD9Aed62898
+  YieldVault: 0xb7d6F16D38087535341d6F51FC8F2205A5D0008a
+
+
+== Stackup.sh API Token ==
+  stk_live_0c8ed5daed77d9016e20

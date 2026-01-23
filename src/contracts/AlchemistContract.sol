@@ -39,6 +39,7 @@ contract AlchemistContract is AccessControl {
 
     // State variables
     ElementNFT public immutable I_ELEMENT_NFT;
+    address public immutable TREASURY;
 
     // Mappings
     mapping(bytes32 => Recepie) public recepies;
@@ -49,9 +50,10 @@ contract AlchemistContract is AccessControl {
     error Alchemist__InvalidRecepie();
 
     // Constructor
-    constructor(address nftAddress) {
+    constructor(address nftAddress, address _treasury) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         I_ELEMENT_NFT = ElementNFT(nftAddress);
+        TREASURY = _treasury;
 
         // Initialize the recepies mapping with valid recepies
         // Tier II hashes and recepies (sorted order)
@@ -115,6 +117,10 @@ contract AlchemistContract is AccessControl {
         if (msg.value < 0.002 ether) {
             revert Alchemist__InsufficientETHSent();
         }
+        
+        // Transfer crafting fee to treasury immediately
+        (bool success, ) = TREASURY.call{value: msg.value}("");
+        require(success, "Treasury transfer failed");
 
         // Check ownership and get Types
         uint8 a = I_ELEMENT_NFT.getTokenElement(tokenIds[0]);

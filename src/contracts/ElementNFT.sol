@@ -17,6 +17,7 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
     
     // State variables
     uint256 private _tokenIdCounter;
+    address public immutable TREASURY;
     
     // Mapping to store token tiers
     mapping(uint256 => uint8) private sTokenElements;
@@ -31,8 +32,9 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
     
     // Constructor
     
-    constructor() ERC721("Alchemy Elements", "ELEM") {
+    constructor(address _treasury) ERC721("Alchemy Elements", "ELEM") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        TREASURY = _treasury;
     }
     
     // Admin mint function (free, requires MINTER_ROLE)
@@ -53,6 +55,10 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
     function publicMint(uint8 element) external payable {
         require(msg.value >= 0.002 ether, "Insufficient payment");
         require(element <= 5, "Invalid element for Tier 1");
+        
+        // Transfer minting fee to treasury immediately
+        (bool success, ) = TREASURY.call{value: msg.value}("");
+        require(success, "Treasury transfer failed");
         
         uint256 tokenId = _tokenIdCounter;
         sTokenTiers[tokenId] = 1; // Always Tier 1

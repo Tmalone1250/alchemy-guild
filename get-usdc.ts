@@ -25,15 +25,15 @@ async function main() {
     const usdc = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, wallet);
     const router = new ethers.Contract(SWAP_ROUTER, ROUTER_ABI, wallet);
 
-    console.log("\n💱 Swapping 0.01 WETH → USDC\n");
+    console.log("\n💱 Swapping 0.1 WETH → USDC\n");
 
-    const amountIn = ethers.parseEther("0.01"); // Swap 0.01 WETH for USDC
+    const amountIn = ethers.parseEther("0.1"); // Swap 0.1 WETH for USDC
 
     // Check balance
     const wethBalance = await weth.balanceOf(wallet.address);
     if (wethBalance < amountIn) {
         console.log("❌ Not enough WETH!");
-        console.log(`   Need: 0.01 WETH, Have: ${ethers.formatEther(wethBalance)}`);
+        console.log(`   Need: 0.1 WETH, Have: ${ethers.formatEther(wethBalance)}`);
         return;
     }
 
