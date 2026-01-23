@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-**Alchemy Guild** is a gamified DeFi protocol that transforms traditional NFT staking into an immersive elemental alchemy experience. Users collect, craft, and stake elemental NFTs to earn yield generated from real Uniswap V3 liquidity provision. The project combines gaming mechanics with sophisticated DeFi infrastructure to create a unique value proposition in the Web3 ecosystem.
+**Alchemy Guild** is a gamified DeFi protocol that transforms traditional NFT staking into an immersive elemental alchemy experience. Users collect, craft, and stake elemental NFTs to earn **GOLD** (USDC) generated from real **Mana Pool** (Uniswap V3 liquidity) provision. The project combines gaming mechanics with sophisticated DeFi infrastructure to create a unique value proposition in the Web3 ecosystem.
 
 **Core Innovation**: Merging RPG-style crafting systems with automated market maker (AMM) yield farming, where player progression directly correlates to financial returns.
 
@@ -25,7 +25,7 @@ The six fundamental forces of nature:
 - ❄️ **Ice** - Preservation and control
 - ⚡ **Lightning** - Speed and power
 
-**Gameplay**: Entry-level NFTs that any player can mint for 0.01 ETH. These serve as the building blocks for progression.
+**Gameplay**: Entry-level NFTs that any player can mint for 0.002 MANA (ETH). These serve as the building blocks for progression.
 
 #### Tier 2: Combined Elements (Silver Tier)
 **Weight Multiplier: 135** (+35% vs Tier 1)
@@ -38,7 +38,7 @@ Advanced elements created through alchemical transmutation:
 - 🌋 **Quake** - Earth + Earth fusion
 - ⚡ **Plasma** - Lightning + Lightning fusion
 
-**Gameplay**: Requires burning 3 Tier 1 NFTs + 0.002 ETH transmutation fee. Players must strategically choose which elements to sacrifice.
+**Gameplay**: Requires burning 3 Tier 1 NFTs + 0.002 MANA (ETH) transmutation fee. Players must strategically choose which elements to sacrifice.
 
 #### Tier 3: Mystical Elements (Gold Tier)
 **Weight Multiplier: 175** (+75% vs Tier 1, +30% vs Tier 2)
@@ -51,7 +51,7 @@ The rarest and most powerful elements:
 - 🧬 **Bio** - Life force
 - 👻 **Spirit** - Ethereal power
 
-**Gameplay**: Requires burning 3 Tier 2 NFTs + 0.002 ETH. Represents the pinnacle of alchemical mastery, offering maximum yield.
+**Gameplay**: Requires burning 3 Tier 2 NFTs + 0.002 MANA (ETH). Represents the pinnacle of alchemical mastery, offering maximum yield.
 
 ### The Crafting Lab (Transmutation)
 
@@ -101,22 +101,22 @@ Every craft requires **0.002 ETH** regardless of tier:
 
 **Example Player Journey:**
 ```
-Start: Mint 9x Tier 1 NFTs (0.09 ETH)
+Start: Mint 9x Tier 1 NFTs (0.018 MANA (ETH))
   → 2x Earth, 2x Water, 2x Wind, 1x Fire, 1x Ice, 1x Lightning
 
 Craft #1: Burn Earth + Earth + Fire → 1x Quake (Tier 2)
-  Cost: 0.002 ETH
+  Cost: 0.002 MANA (ETH)
   Remaining: 2x Water, 2x Wind, 1x Ice, 1x Lightning, 1x Quake
 
 Craft #2: Burn Water + Water + Wind → 1x Tsunami (Tier 2)
-  Cost: 0.002 ETH
+  Cost: 0.002 MANA (ETH)
   Remaining: 1x Wind, 1x Ice, 1x Lightning, 1x Quake, 1x Tsunami
 
 Craft #3: Burn Quake + Tsunami + Wind → 1x Time (Tier 3)
-  Cost: 0.002 ETH
+  Cost: 0.002 MANA (ETH)
   Final: 1x Ice, 1x Lightning, 1x Time
 
-Total Investment: 0.096 ETH (0.09 minting + 0.006 crafting)
+Total Investment: 0.096 MANA (ETH) (0.09 minting + 0.006 crafting)
 Final Collection: 3 NFTs (from 9)
 Highest Tier: 1x Tier 3 (175 weight) for maximum yield
 ```
@@ -127,8 +127,8 @@ Highest Tier: 1x Tier 3 (175 weight) for maximum yield
 
 1. **Selection**: Player chooses an elemental NFT from their inventory
 2. **Commitment**: Transfer NFT to the Vault contract
-3. **Activation**: NFT begins accumulating yield based on its weight
-4. **Harvesting**: Claim accumulated USDC rewards at any time
+3. **Activation**: NFT begins accumulating **GOLD** based on its weight
+4. **Harvesting**: Claim accumulated **GOLD** rewards at any time
 5. **Unbinding**: Unstake to retrieve the NFT (automatically claims rewards)
 
 **Visual Feedback:**
@@ -148,13 +148,13 @@ Your Reward = (Your Total Weight / Global Total Weight) × Fees Distributed
 - You stake: 1x Tier 3 (Holy) = 175 weight
 - Others stake: Total 825 weight
 - Global weight: 1,000 total
-- Vault distributes: 100 USDC in fees
-- Your reward: (175/1000) × 100 = 17.5 USDC (17.5% of pool)
+- Vault distributes: 100 GOLD in fees
+- Your reward: (175/1000) × 100 = 17.5 GOLD (17.5% of pool)
 
 ### Player Progression Loop
 
 ```
-Mint Elements → Stake for Yield → Harvest USDC → 
+Mint Elements → Stake for Yield → Harvest GOLD → 
     ↓                                           ↑
 Craft Higher Tiers ← Reinvest in Minting ← Claim Rewards
 ```
@@ -164,6 +164,14 @@ Craft Higher Tiers ← Reinvest in Minting ← Claim Rewards
 - **Tier Climbing**: Competitive drive to reach Tier 3
 - **Yield Optimization**: Strategic staking/unstaking decisions
 - **Market Dynamics**: Trading elements based on scarcity
+
+### Visual Experience
+
+The interface features a dynamic, immersive environment:
+- **Cinematic Atmosphere**: Void-black backgrounds with gold accents (`#d4af37`)
+- **Living Backgrounds**: Procedural noise textures, floating particles, and a rotating transmutation circle that reacts to mouse movement
+- **Premium Typography**: Cinzel (headers) and Lato (body) fonts for a high-fantasy feel
+- **Reactive Gradients**: Element-specific glowing effects (e.g., pulsing magma for Fire/Inferno)
 
 ---
 
@@ -204,7 +212,7 @@ function transmute(uint256[] memory tokenIds) external payable
 // Requirements:
 // - Exactly 3 NFTs provided
 // - All must be same tier
-// - Must pay 0.002 ETH
+// - Must pay 0.002  ETH
 // - Caller must own all 3 NFTs
 
 // Process:
@@ -302,7 +310,7 @@ function getPendingReward(uint256 tokenId) public view returns (uint256) {
     // Subtract what was already accounted for at stake time
     uint256 pending = accumulated - sRewardDebt[tokenId];
     
-    return pending / 1e12; // Convert from 18 decimals to 6 (USDC)
+    return pending / 1e12; // Convert from 18 decimals to 6 (GOLD/USDC)
 }
 ```
 
@@ -317,12 +325,12 @@ Time 0: Alice stakes Tier 3 NFT (175 weight)
   → sAccRewardPerWeight = 0
   → sRewardDebt[nft] = 0
 
-Time 1: Vault distributes 100 USDC
+Time 1: Vault distributes 100 GOLD
   → sAccRewardPerWeight += (100 * 1e6 * 1e18) / 175 = 571,428,571,428,571,428
   
 Time 2: Alice's pending reward
-  → accumulated = (571,428,571,428,571,428 * 175) / 1e18 = 100,000,000 (100 USDC in 6 decimals)
-  → pending = 100,000,000 - 0 = 100 USDC ✓
+  → accumulated = (571,428,571,428,571,428 * 175) / 1e18 = 100,000,000 (100 GOLD in 6 decimals)
+  → pending = 100,000,000 - 0 = 100 GOLD ✓
 ```
 
 **Claiming Rewards:**
@@ -341,7 +349,7 @@ function claimYield(uint256 tokenId) external nonReentrant {
     uint256 weight = getTierWeight(sStakedTier[tokenId]);
     sRewardDebt[tokenId] = (sAccRewardPerWeight * weight) / SCALE_FACTOR;
     
-    // Transfer USDC
+    // Transfer GOLD (USDC)
     USDC.safeTransfer(msg.sender, payout);
     
     emit YieldClaimed(msg.sender, tokenId, payout);
@@ -349,7 +357,7 @@ function claimYield(uint256 tokenId) external nonReentrant {
 ```
 
 **Protection Mechanism:**
-- Vault keeps 20% of USDC as liquid reserve
+- Vault keeps 20% of GOLD (USDC) as liquid reserve
 - Only 80% goes into Uniswap position
 - Ensures users can always claim without position withdrawal
 
@@ -357,7 +365,7 @@ function claimYield(uint256 tokenId) external nonReentrant {
 
 **The Liquidity Strategy:**
 
-The vault acts as a liquidity provider on Uniswap V3's WETH/USDC 0.3% fee pool.
+The vault acts as a liquidity provider on Uniswap V3's WETH/USDC (Mana Pool) 0.3% fee pool.
 
 **Position Lifecycle:**
 
@@ -441,13 +449,13 @@ emit Rebalanced(sLastPositionId, wethFees, netFees, tax);
 **Fee Distribution Example:**
 
 ```
-Uniswap pool generates: 1.0 USDC + 0.0005 WETH in fees
+Uniswap pool generates: 1.0 GOLD + 0.0005 WETH in fees
                               ↓
-Vault collects fees:    1.0 USDC + swap(0.0005 WETH) = ~2.1 USDC total
+Vault collects fees:    1.0 GOLD + swap(0.0005 WETH) = ~2.1 GOLD total
                               ↓
-Treasury tax (10%):     0.21 USDC → Treasury wallet
+Treasury tax (10%):     0.21 GOLD → Treasury wallet
                               ↓
-Staker distribution:    1.89 USDC → Weight-based allocation
+Staker distribution:    1.89 GOLD → Weight-based allocation
                               ↓
 Global update:          sAccRewardPerWeight += (1.89 * 1e6 * 1e18) / sTotalWeight
 ```
@@ -466,9 +474,9 @@ Global update:          sAccRewardPerWeight += (1.89 * 1e6 * 1e18) / sTotalWeigh
 
 ```javascript
 Every 5 cycles:
-  ├─ Swap WETH → USDC (create volume)
+  ├─ Swap WETH → GOLD (create volume)
   ├─ Wait 5 seconds (RPC propagation)
-  ├─ Swap USDC → WETH (reverse, minimize slippage)
+  ├─ Swap GOLD → WETH (reverse, minimize slippage)
   ├─ Wait 30 seconds
   └─ Call vault.rebalance() (collect fees)
 ```
@@ -486,14 +494,14 @@ Every 5 cycles:
 
 **Economic Impact:**
 ```
-Bot swaps 0.001 WETH → USDC:
+Bot swaps 0.001 WETH → GOLD:
   Pool earns: ~0.000003 WETH fee
   
-Bot swaps back USDC → WETH:
+Bot swaps back GOLD → WETH:
   Pool earns: ~0.000003 WETH fee
   
 After 5 cycles + external trading:
-  Total fees: ~0.00005 WETH + USDC equivalent
+  Total fees: ~0.00005 WETH + GOLD equivalent
   
 Rebalance collects and distributes:
   90% to stakers
@@ -543,10 +551,10 @@ Rebalance collects and distributes:
    - Success animation
 
 6. **Analytics**
-   - Protocol TVL chart
-   - Cumulative yield distributed
-   - Total yield claimed
-   - Transaction volume metrics
+   - Protocol TVL (Total Value Locked) in GOLD
+   - Cumulative GOLD distributed
+   - Total GOLD claimed
+   - **Mana Pool** (Transaction volume) metrics
 
 **Real-Time Updates:**
 
@@ -611,19 +619,19 @@ Initial State:
   Bob stakes Tier 1 (100 weight)
   sTotalWeight = 275
 
-Vault distributes 55 USDC:
+Vault distributes 55 GOLD:
   sAccRewardPerWeight += (55 * 1e6 * 1e18) / 275
   sAccRewardPerWeight = 200,000,000,000,000,000,000
 
 Alice's reward:
   accumulated = (200,000,000,000,000,000,000 * 175) / 1e18 = 35,000,000 (35 USDC)
-  pending = 35,000,000 - 0 = 35 USDC ✓
+  pending = 35,000,000 - 0 = 35 GOLD ✓
 
 Bob's reward:
-  accumulated = (200,000,000,000,000,000,000 * 100) / 1e18 = 20,000,000 (20 USDC)
-  pending = 20,000,000 - 0 = 20 USDC ✓
+  accumulated = (200,000,000,000,000,000,000 * 100) / 1e18 = 20,000,000 (20 GOLD)
+  pending = 20,000,000 - 0 = 20 GOLD ✓
 
-Verification: 35 + 20 = 55 USDC ✓
+Verification: 35 + 20 = 55 GOLD ✓
 ```
 
 ### Position-Only Fee Collection (Bug Fix)
@@ -688,7 +696,7 @@ function stake(...) external nonReentrant {
 
 **2. Balance Capping:**
 ```solidity
-// Claims limited to available USDC
+// Claims limited to available GOLD
 uint256 vaultBalance = USDC.balanceOf(address(this));
 uint256 payout = pending > vaultBalance ? vaultBalance : pending;
 ```
@@ -761,7 +769,7 @@ emit Staked(user, tokenId, tier, weight);
 ### Value Accrual
 
 **For Players:**
-- Earn real yield (USDC) from Uniswap fees
+- Earn real **GOLD** (USDC) from Mana Pool fees
 - NFT appreciation from deflationary mechanics
 - Higher tiers = higher yield multiplier
 
@@ -841,12 +849,12 @@ Realistic (lower volume):
 
 ### Phase 2: Enhanced Gamification
 - **Elemental Synergies**: Stake complementary elements for bonus multipliers
-- **Achievement System**: NFT badges for milestones (First Tier  3, 100 USDC claimed, etc.)
+- **Achievement System**: NFT badges for milestones (First Tier  3, 100 GOLD claimed, etc.)
 - **Leaderboards**: Top stakers, most crafts, highest yields
 - **Seasonal Events**: Limited-time elements, bonus yield periods
 
 ### Phase 3: DeFi Expansion
-- **Multi-Pool Support**: Add ETH/DAI, USDC/DAI positions
+- **Multi-Pool Support**: Add ETH/DAI, GOLD/DAI positions
 - **Yield Aggregation**: Route best APY across multiple protocols
 - **Governance Token**: $GUILD for protocol decisions
 - **Revenue Sharing**: $GUILD stakers earn from treasury
