@@ -106,10 +106,10 @@ npx tsx volume-bot.ts
 
 | Contract | Address | Verified |
 |----------|---------|----------|
-| **ElementNFT** | [`0x14e767d025da5182c7854217617bF4a16a0c1bC8`](https://sepolia.etherscan.io/address/0x14e767d025da5182c7854217617bF4a16a0c1bC8) | ✅ |
-| **YieldVault** | [`0xDC684AD1406BdcEd18c2224d75a53c6B5FAea773`](https://sepolia.etherscan.io/address/0xDC684AD1406BdcEd18c2224d75a53c6B5FAea773) | ✅ |
-| **Alchemist** | [`0x56752c6e5A0d53e3aD129F5ccc78B08974cf6Fb8`](https://sepolia.etherscan.io/address/0x56752c6e5A0d53e3aD129F5ccc78B08974cf6Fb8) | ✅ |
-| **Treasury** | [`0x8EAea39a6e58d8c222a034a3B91D71f19fFeF1C5`](https://sepolia.etherscan.io/address/0x8EAea39a6e58d8c222a034a3B91D71f19fFeF1C5) | ✅ |
+| **ElementNFT** | [`0xF15e4954AE325d68BFF9c990F26269D9c024caF0`](https://sepolia.etherscan.io/address/0xF15e4954AE325d68BFF9c990F26269D9c024caF0) | ✅ |
+| **YieldVault** | [`0xFff8e4da589f15453e73004b65c61Da341B9075C`](https://sepolia.etherscan.io/address/0xFff8e4da589f15453e73004b65c61Da341B9075C) | ✅ |
+| **Alchemist** | [`0x8f392ccee00369d6623e18E6DDF120E988f3a513`](https://sepolia.etherscan.io/address/0x8f392ccee00369d6623e18E6DDF120E988f3a513) | ✅ |
+| **Treasury** | [`0x09b6E39f11C4c26022D10DE50d63C0541ad40227`](https://sepolia.etherscan.io/address/0x09b6E39f11C4c26022D10DE50d63C0541ad40227) | ✅ |
 
 ### External Contracts
 
