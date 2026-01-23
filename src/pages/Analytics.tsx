@@ -66,16 +66,16 @@ export default function Analytics() {
         />
         <StatCard
           title="Protocol TVL"
-          value={`${parseFloat(tvl).toFixed(2)} USDC`}
+          value={`${parseFloat(tvl).toFixed(2)} GOLD`}
           icon={Coins}
           variant="gold"
           subtitle="Total Value Locked"
         />
         <StatCard
           title="24h Volume"
-          value={`${parseFloat(volume24h).toFixed(4)} ETH`}
+          value={`${parseFloat(volume24h).toFixed(4)} MANA`}
           icon={TrendingUp}
-          subtitle="Uniswap V3 Pool"
+          subtitle="Mana Pool"
         />
       </div>
 

@@ -81,7 +81,7 @@ export default function Dashboard() {
         <StatCard
           title="Total Value Locked"
           value={calculateTVL()}
-          subtitle="USDC in vault"
+          subtitle="GOLD in vault"
           icon={Vault}
           variant="gold"
         />

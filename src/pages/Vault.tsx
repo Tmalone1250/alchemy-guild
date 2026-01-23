@@ -96,7 +96,7 @@ export default function Vault() {
         </div>
         <div className="glass-panel px-6 py-4">
           <p className="text-xs text-muted-foreground">Total Pending Yield</p>
-          <p className="text-2xl font-mono text-gold-gradient">${totalPendingYield.toFixed(2)}</p>
+          <p className="text-2xl font-mono text-gold-gradient">{totalPendingYield.toFixed(2)} GOLD</p>
         </div>
       </motion.div>
 
