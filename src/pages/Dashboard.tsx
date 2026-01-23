@@ -28,6 +28,39 @@ export default function Dashboard() {
     functionName: 'sAccRewardPerWeight',
   });
 
+  // Read vault balances for TVL calculation
+  const ERC20_ABI = [
+    {
+      "inputs": [{ "name": "account", "type": "address" }],
+      "name": "balanceOf",
+      "outputs": [{ "name": "", "type": "uint256" }],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ] as const;
+
+  const { data: vaultUsdcBalance } = useReadContract({
+    address: CONTRACTS.USDC.address,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [CONTRACTS.YieldVault.address],
+  });
+
+  const { data: vaultWethBalance } = useReadContract({
+    address: CONTRACTS.WETH.address,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [CONTRACTS.YieldVault.address],
+  });
+
+  const calculateTVL = () => {
+    if (!vaultUsdcBalance && !vaultWethBalance) return '$0.00';
+    const usdc = vaultUsdcBalance ? Number(vaultUsdcBalance) / 1e6 : 0;
+    const weth = vaultWethBalance ? Number(vaultWethBalance) / 1e18 : 0;
+    // Simplified: Just show USDC value (WETH value would need price oracle)
+    return `$${usdc.toFixed(2)}`;
+  };
+
   const formatYieldIndex = (value: bigint | undefined) => {
     if (!value) return '1.0000';
     return (Number(value) / 1e18).toFixed(4);
@@ -47,8 +80,8 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Value Locked"
-          value="$0.00"
-          subtitle="Across all vaults"
+          value={calculateTVL()}
+          subtitle="USDC in vault"
           icon={Vault}
           variant="gold"
         />

@@ -5,7 +5,7 @@ dotenv.config();
 
 const RPC_URL = process.env.VITE_INFURA_RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const VAULT_ADDRESS = "0xDC684AD1406BdcEd18c2224d75a53c6B5FAea773";
+const VAULT_ADDRESS = "0xFff8e4da589f15453e73004b65c61Da341B9075C";
 const WETH_ADDRESS = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14";
 const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
@@ -42,7 +42,7 @@ async function main() {
     console.log(`   USDC: ${ethers.formatUnits(vaultUsdc, 6)}\n`);
 
     const seedWeth = ethers.parseEther("0.05");
-    const seedUsdc = 100000000n; // 100 USDC
+    const seedUsdc = 1000000000n; // 1000 USDC
 
     if (botWeth < seedWeth) {
         console.log("❌ ERROR: Bot doesn't have enough WETH!");
@@ -52,19 +52,19 @@ async function main() {
 
     if (botUsdc < seedUsdc) {
         console.log("❌ ERROR: Bot doesn't have enough USDC!");
-        console.log(`   Need: 100 USDC, Have: ${ethers.formatUnits(botUsdc, 6)}`);
+        console.log(`   Need: 1000 USDC, Have: ${ethers.formatUnits(botUsdc, 6)}`);
         return;
     }
 
     // Transfer WETH
-    console.log("💸 Transferring 0.05 WETH to Vault...");
+    console.log("💸 Transferring 0.5 WETH to Vault...");
     const tx1 = await weth.transfer(VAULT_ADDRESS, seedWeth);
     console.log(`   Tx: ${tx1.hash}`);
     await tx1.wait();
     console.log("   ✅ Confirmed\n");
 
     // Transfer USDC
-    console.log("💸 Transferring 100 USDC to Vault...");
+    console.log("💸 Transferring 1000 USDC to Vault...");
     const tx2 = await usdc.transfer(VAULT_ADDRESS, seedUsdc);
     console.log(`   Tx: ${tx2.hash}`);
     await tx2.wait();

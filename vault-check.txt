@@ -1,0 +1,14 @@
+
+=== VAULT STATE CHECK ===
+
+Vault USDC Balance: 145.436146 USDC
+
+Currently Staked NFTs:
+  Token 9: 3911.636049 USDC (Owner: 0xc8B3A3...)
+  Token 10: 623.798056 USDC (Owner: 0x7dB25C...)
+
+Total Pending: 4535.434105 USDC
+Vault Balance: 145.436146 USDC
+
+⚠️  PROBLEM: Pending rewards exceed balance!
+   Shortfall: 4389.997959 USDC

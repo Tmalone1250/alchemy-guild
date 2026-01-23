@@ -187,24 +187,8 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         int24 tickLower = usableTick - ((500 / tickSpacing) * tickSpacing);
         int24 tickUpper = usableTick + ((500 / tickSpacing) * tickSpacing);
 
-        // Fetch Liquidity from existing position
+        // Collect accumulated fees from existing position (WITHOUT withdrawing liquidity)
         if (sLastPositionId != 0) {
-            (, , , , , , , uint128 existingLiquidity, , , , ) = POSITION_MANAGER
-                .positions(sLastPositionId);
-            if (existingLiquidity > 0) {
-                // decreaseLiquidity logic
-                POSITION_MANAGER.decreaseLiquidity(
-                    INonfungiblePositionManager.DecreaseLiquidityParams({
-                        tokenId: sLastPositionId,
-                        liquidity: existingLiquidity,
-                        amount0Min: 0,
-                        amount1Min: 0,
-                        deadline: block.timestamp
-                    })
-                );
-            }
-
-            // Collect any remaining tokens from the old position
             POSITION_MANAGER.collect(
                 INonfungiblePositionManager.CollectParams({
                     tokenId: sLastPositionId,
@@ -250,35 +234,38 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
             }
         }
 
-
         uint256 balance0 = USDC.balanceOf(address(this));
         uint256 balance1 = WETH.balanceOf(address(this));
 
-        // Keep 20% USDC as reserve for yield claims (only deposit 80% into position)
-        uint256 usdcForPosition = (balance0 * 80) / 100;
-        uint256 usdcReserve = balance0 - usdcForPosition;
+        // Only create a new Uniswap position if one doesn't exist yet (first rebalance)
+        if (sLastPositionId == 0) {
+            // Keep 20% USDC as reserve for yield claims (only deposit 80% into position)
+            uint256 usdcForPosition = (balance0 * 80) / 100;
+            uint256 usdcReserve = balance0 - usdcForPosition;
 
-        // Approve Uniswap V3 Position Manager to spend tokens
-        USDC.approve(address(POSITION_MANAGER), usdcForPosition);
-        WETH.approve(address(POSITION_MANAGER), balance1);
+            // Approve Uniswap V3 Position Manager to spend tokens
+            USDC.approve(address(POSITION_MANAGER), usdcForPosition);
+            WETH.approve(address(POSITION_MANAGER), balance1);
 
-        // Rebalance Mint Logic
-        INonfungiblePositionManager.MintParams
-            memory params = INonfungiblePositionManager.MintParams({
-                token0: address(USDC),
-                token1: address(WETH),
-                fee: 3000,
-                tickLower: tickLower,
-                tickUpper: tickUpper,
-                amount0Desired: usdcForPosition,  // Only 80% of USDC
-                amount1Desired: balance1,
-                amount0Min: 0,
-                amount1Min: 0,
-                recipient: address(this),
-                deadline: block.timestamp
-            });
+            // Create the FIRST liquidity position
+            INonfungiblePositionManager.MintParams
+                memory params = INonfungiblePositionManager.MintParams({
+                    token0: address(USDC),
+                    token1: address(WETH),
+                    fee: 3000,
+                    tickLower: tickLower,
+                    tickUpper: tickUpper,
+                    amount0Desired: usdcForPosition,  // Only 80% of USDC
+                    amount1Desired: balance1,
+                    amount0Min: 0,
+                    amount1Min: 0,
+                    recipient: address(this),
+                    deadline: block.timestamp
+                });
 
-        (sLastPositionId, , , ) = POSITION_MANAGER.mint(params);
+            (sLastPositionId, , , ) = POSITION_MANAGER.mint(params);
+        }
+        // If sLastPositionId != 0, position already exists - we just collected fees above, don't create a new position!
 
         emit Rebalanced(sLastPositionId, fee0, netFeeUsdc, tax);
     }

@@ -6,7 +6,7 @@ dotenv.config();
 // --- Configuration ---
 const RPC_URL = process.env.VITE_INFURA_RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const VAULT_ADDRESS = "0xDC684AD1406BdcEd18c2224d75a53c6B5FAea773";  // YieldVault (was pointing to Alchemist!)
+const VAULT_ADDRESS = "0xFff8e4da589f15453e73004b65c61Da341B9075C";  // YieldVault (was pointing to Alchemist!)
 const SWAP_ROUTER_ADDRESS = "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E";
 const WETH_ADDRESS = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"; // Token1 (Lexicographically larger than USDC)
 const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"; // Token0
