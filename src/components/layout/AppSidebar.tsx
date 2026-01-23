@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { useAccount, useBalance } from 'wagmi';
+import { useAccount, useBalance, useDisconnect } from 'wagmi';
+import { formatEther } from 'viem';
 import {
   LayoutDashboard,
   Grid3X3,
@@ -10,6 +11,7 @@ import {
   Hexagon,
   Wallet,
   ChevronRight,
+  LogOut,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConnectButton } from '@/components/ui/connect-button';
@@ -25,6 +27,7 @@ const navItems = [
 export function AppSidebar() {
   const location = useLocation();
   const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
   const { data: balance } = useBalance({
     address: address,
   });
@@ -33,10 +36,9 @@ export function AppSidebar() {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  const formatBalance = (bal: string | undefined) => {
+  const formatBalance = (bal: typeof balance) => {
     if (!bal) return '0.0000';
-    const num = parseFloat(bal);
-    return num.toFixed(4);
+    return parseFloat(formatEther(bal.value)).toFixed(4);
   };
 
   return (
@@ -51,7 +53,7 @@ export function AppSidebar() {
             </div>
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">Alchemy Vault</h1>
+            <h1 className="text-lg font-semibold text-foreground">Alchemy Guild</h1>
             <p className="text-xs text-muted-foreground">Sepolia Testnet</p>
           </div>
         </div>
@@ -112,6 +114,13 @@ export function AppSidebar() {
                   <span className="font-mono">{formatBalance(balance?.formatted)}</span> ETH
                 </p>
               </div>
+              <button
+                onClick={() => disconnect()}
+                className="w-8 h-8 rounded-lg hover:bg-destructive/10 flex items-center justify-center transition-colors group"
+                title="Disconnect Wallet"
+              >
+                <LogOut className="w-4 h-4 text-muted-foreground group-hover:text-destructive transition-colors" />
+              </button>
             </div>
           </div>
         ) : (

@@ -125,7 +125,7 @@ export function ActivityTable() {
                           <span className="text-sm font-mono text-gold-gradient font-medium">
                             +{event.amount}
                           </span>
-                          <span className="text-[10px] text-muted-foreground uppercase">Yield</span>
+                          <span className="text-[10px] text-muted-foreground uppercase">Gold</span>
                         </div>
                       )}
                       {!event.amount && (

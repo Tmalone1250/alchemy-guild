@@ -159,6 +159,14 @@ export function useProtocolStats() {
                     volumeWeth += amount1 < 0n ? -amount1 : amount1;
                 });
 
+                // Fetch YieldVault's USDC balance for actual TVL
+                const vaultUsdc = await publicClient.readContract({
+                    address: CONTRACTS.USDC.address as `0x${string}`,
+                    abi: [parseAbiItem('function balanceOf(address) view returns (uint256)')],
+                    functionName: 'balanceOf',
+                    args: [CONTRACTS.YieldVault.address]
+                }) as bigint;
+
                 setStats({
                     uniqueHolders: uniqueAddresses.size,
                     totalStaked: stakedTokens.size,
@@ -168,7 +176,7 @@ export function useProtocolStats() {
                     yieldHistory: sampledHistory.length > 0 ? sampledHistory : [{ date: 'Start', value: 0 }],
                     isLoading: false,
                     volume24h: formatEther(volumeWeth),
-                    tvl: formatEther(wethBal),
+                    tvl: (Number(vaultUsdc) / 1e6).toFixed(2), // USDC has 6 decimals
                 });
 
             } catch (error) {

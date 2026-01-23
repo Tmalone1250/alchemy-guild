@@ -54,7 +54,7 @@ export default function Analytics() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Yield Claimed"
-          value={`${parseFloat(totalYieldClaimed).toFixed(2)} USDC`}
+          value={`${parseFloat(totalYieldClaimed).toFixed(2)} GOLD`}
           icon={BarChart3}
           trend={{ value: 'All time', positive: true }}
         />
@@ -66,7 +66,7 @@ export default function Analytics() {
         />
         <StatCard
           title="Protocol TVL"
-          value={`${parseFloat(tvl).toFixed(4)} ETH`}
+          value={`${parseFloat(tvl).toFixed(2)} USDC`}
           icon={Coins}
           variant="gold"
           subtitle="Total Value Locked"
@@ -111,7 +111,7 @@ export default function Analytics() {
                     borderRadius: '8px',
                   }}
                   labelStyle={{ color: 'hsl(210, 20%, 95%)' }}
-                  formatter={(value: number) => [`${value.toFixed(2)} USDC`, 'Yield']}
+                  formatter={(value: number) => [`${value.toFixed(2)} GOLD`, 'Yield']}
                 />
                 <Area
                   type="monotone"

@@ -93,7 +93,7 @@ export function useRecentActivity() {
                         id: `${log.transactionHash}-${log.logIndex}`,
                         type: 'unstake',
                         tokenId: Number(args.tokenId),
-                        amount: (Number(args.reward) / 1e18).toFixed(4), // Assuming 18 decimals for yield
+                        amount: (Number(args.reward) / 1e6).toFixed(2), // USDC has 6 decimals
                         timestamp,
                         txHash: log.transactionHash,
                     });
@@ -102,7 +102,7 @@ export function useRecentActivity() {
                         id: `${log.transactionHash}-${log.logIndex}`,
                         type: 'claim',
                         tokenId: Number(args.tokenId),
-                        amount: (Number(args.reward) / 1e18).toFixed(4),
+                        amount: (Number(args.reward) / 1e6).toFixed(2), // USDC has 6 decimals
                         timestamp,
                         txHash: log.transactionHash,
                     });

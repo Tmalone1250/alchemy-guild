@@ -10,7 +10,7 @@ export const wagmiConfig = createConfig({
       projectId: import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID',
     }),
     coinbaseWallet({
-      appName: 'Alchemy Vault',
+      appName: 'Alchemy Guild',
     }),
   ],
   transports: {
