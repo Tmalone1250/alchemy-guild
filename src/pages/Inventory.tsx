@@ -53,7 +53,7 @@ export default function Inventory() {
           </div>
 
           {/* Element Filters */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground">Element:</span>
             <Button
               size="sm"
@@ -77,7 +77,7 @@ export default function Inventory() {
           <div className="w-px h-6 bg-border" />
 
           {/* Tier Filters */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs text-muted-foreground">Tier:</span>
             <Button
               size="sm"
