@@ -8,6 +8,7 @@ import Lab from "@/pages/Lab";
 import Vault from "@/pages/Vault";
 import Analytics from "@/pages/Analytics";
 import LandingPage from "@/pages/LandingPage";
+import Whitepaper from "@/pages/Whitepaper";
 import NotFound from "@/pages/NotFound";
 
 const App = () => (
@@ -26,6 +27,7 @@ const App = () => (
       <Routes>
         {/* Landing Page - Root */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/whitepaper" element={<Whitepaper />} />
 
         {/* App Routes - With Dashboard Layout */}
         <Route element={<DashboardLayout />}>

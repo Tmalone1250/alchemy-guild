@@ -93,16 +93,25 @@ const LandingPage = () => {
                         </h1>
                     </div>
 
-                    <button
-                        onClick={() => address ? navigate('/dashboard') : undefined}
-                        className="group relative px-6 py-2 border border-[#d4af37]/50 bg-[#0a0510]/80 backdrop-blur-md overflow-hidden transition-all hover:border-[#d4af37] hover:shadow-[0_0_15px_rgba(212,175,55,0.3)]"
-                    >
-                        <div className="absolute inset-0 bg-[#d4af37]/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                        <span className="relative font-lato text-sm font-semibold tracking-widest uppercase flex items-center gap-2">
-                            <Wallet className="w-4 h-4" />
-                            {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Connect Wallet"}
-                        </span>
-                    </button>
+                    <div className="flex items-center gap-6">
+                        <button
+                            onClick={() => navigate('/whitepaper')}
+                            className="font-lato text-sm tracking-widest uppercase text-[#a8a0b0] hover:text-[#d4af37] transition-colors"
+                        >
+                            Whitepaper
+                        </button>
+
+                        <button
+                            onClick={() => address ? navigate('/dashboard') : undefined}
+                            className="group relative px-6 py-2 border border-[#d4af37]/50 bg-[#0a0510]/80 backdrop-blur-md overflow-hidden transition-all hover:border-[#d4af37] hover:shadow-[0_0_15px_rgba(212,175,55,0.3)]"
+                        >
+                            <div className="absolute inset-0 bg-[#d4af37]/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                            <span className="relative font-lato text-sm font-semibold tracking-widest uppercase flex items-center gap-2">
+                                <Wallet className="w-4 h-4" />
+                                {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Connect Wallet"}
+                            </span>
+                        </button>
+                    </div>
                 </nav>
 
                 {/* Hero Section */}
