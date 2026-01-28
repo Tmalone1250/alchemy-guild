@@ -1,4 +1,5 @@
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { useWeb3Modal } from '@web3modal/wagmi/react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -23,6 +24,7 @@ export function ConnectButton() {
   const { address, isConnected, chain } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
+  const { open } = useWeb3Modal();
 
   const handleCopyAddress = () => {
     if (address) {
@@ -101,22 +103,33 @@ export function ConnectButton() {
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          {connectors.map((connector) => (
-            <Button
-              key={connector.id}
-              variant="outline"
-              onClick={() => connect({ connector })}
-              className="w-full h-14 justify-start gap-4 text-base font-medium border-white/10 hover:bg-white/5 hover:border-primary/50 transition-all group"
-            >
-              <div className="p-2 rounded-full bg-white/5 group-hover:bg-primary/10 transition-colors">
-                {getConnectorIcon(connector.name)}
-              </div>
-              <span>{connector.name}</span>
-              {connector.name.toLowerCase().includes('injected') && (
-                <span className="ml-auto text-xs text-muted-foreground bg-white/5 px-2 py-1 rounded">Browser</span>
-              )}
-            </Button>
-          ))}
+          {connectors.map((connector) => {
+            // Skip injected if not actually injected (avoid duplicates or confusion)
+            if (connector.id === 'injected' && connector.name === 'Injected') return null;
+
+            return (
+              <Button
+                key={connector.id}
+                variant="outline"
+                onClick={() => {
+                  if (connector.name.toLowerCase().includes('walletconnect')) {
+                    open(); // Use Web3Modal for WalletConnect
+                  } else {
+                    connect({ connector });
+                  }
+                }}
+                className="w-full h-14 justify-start gap-4 text-base font-medium border-white/10 hover:bg-white/5 hover:border-primary/50 transition-all group"
+              >
+                <div className="p-2 rounded-full bg-white/5 group-hover:bg-primary/10 transition-colors">
+                  {getConnectorIcon(connector.name)}
+                </div>
+                <span>{connector.name}</span>
+                {connector.name.toLowerCase().includes('injected') && (
+                  <span className="ml-auto text-xs text-muted-foreground bg-white/5 px-2 py-1 rounded">Browser</span>
+                )}
+              </Button>
+            );
+          })}
         </div>
       </DialogContent>
     </Dialog>
