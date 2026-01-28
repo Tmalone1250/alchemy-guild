@@ -95,10 +95,10 @@ const LandingPage = () => {
 
                     <div className="flex items-center gap-6">
                         <button
-                            onClick={() => navigate('/whitepaper')}
+                            onClick={() => navigate('/docs')}
                             className="font-lato text-sm tracking-widest uppercase text-[#a8a0b0] hover:text-[#d4af37] transition-colors"
                         >
-                            Whitepaper
+                            Documentation
                         </button>
 
                         <button

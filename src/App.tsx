@@ -1,14 +1,19 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { DocsLayout } from "@/components/layout/docs/DocsLayout";
 import Dashboard from "@/pages/Dashboard";
 import Inventory from "@/pages/Inventory";
 import Lab from "@/pages/Lab";
 import Vault from "@/pages/Vault";
 import Analytics from "@/pages/Analytics";
 import LandingPage from "@/pages/LandingPage";
-import Whitepaper from "@/pages/Whitepaper";
+import DocsIntro from "@/pages/docs/Intro";
+import DocsGameplay from "@/pages/docs/Gameplay";
+import DocsStaking from "@/pages/docs/Staking";
+import DocsEconomics from "@/pages/docs/Economics";
+import DocsTechnical from "@/pages/docs/Technical";
 import NotFound from "@/pages/NotFound";
 
 const App = () => (
@@ -27,7 +32,18 @@ const App = () => (
       <Routes>
         {/* Landing Page - Root */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/whitepaper" element={<Whitepaper />} />
+
+        {/* Redirect old whitepaper to new docs */}
+        <Route path="/whitepaper" element={<Navigate to="/docs" replace />} />
+
+        {/* Docs Routes */}
+        <Route path="/docs" element={<DocsLayout />}>
+          <Route index element={<DocsIntro />} />
+          <Route path="gameplay" element={<DocsGameplay />} />
+          <Route path="staking" element={<DocsStaking />} />
+          <Route path="economics" element={<DocsEconomics />} />
+          <Route path="technical" element={<DocsTechnical />} />
+        </Route>
 
         {/* App Routes - With Dashboard Layout */}
         <Route element={<DashboardLayout />}>
