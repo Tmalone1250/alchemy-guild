@@ -91,3 +91,9 @@ export const SEPOLIA_CHAIN = {
   },
   testnet: true,
 } as const;
+
+
+// Deployment Block for Analytics (YieldVault)
+export const DEPLOYMENT_BLOCK = 7294326n;
+
+

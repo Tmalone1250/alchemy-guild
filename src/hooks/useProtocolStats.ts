@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { usePublicClient } from 'wagmi';
-import { parseAbiItem, formatEther } from 'viem';
-import { CONTRACTS } from '../config/contracts';
+import { useState, useEffect, useRef } from 'react';
+import { createPublicClient, http, parseAbiItem, formatEther } from 'viem';
+import { sepolia } from 'viem/chains';
+import { CONTRACTS, DEPLOYMENT_BLOCK } from '../config/contracts';
 
 export interface ProtocolStats {
     uniqueHolders: number;
@@ -13,6 +13,19 @@ export interface ProtocolStats {
     volume24h: string;
     tvl: string;
 }
+
+const CHUNK_SIZE = 100000n; // Increased chunk size for faster loading on publicnode
+const CONCURRENCY_LIMIT = 5; // Parallel requests
+
+// Create a dedicated client for analytics to avoid WalletConnect rate limits
+const analyticsClient = createPublicClient({
+    chain: sepolia,
+    transport: http('https://ethereum-sepolia.publicnode.com', {
+        timeout: 30_000, 
+        retryCount: 3,
+        retryDelay: 1000
+    }) 
+});
 
 export function useProtocolStats() {
     const [stats, setStats] = useState<ProtocolStats>({
@@ -26,70 +39,111 @@ export function useProtocolStats() {
         tvl: '0',
     });
 
-    const publicClient = usePublicClient();
+    const isMounted = useRef(true);
 
     useEffect(() => {
+        isMounted.current = true;
+        
         const fetchStats = async () => {
-            if (!publicClient) return;
-
             try {
-                const currentBlock = await publicClient.getBlockNumber();
-                // RPC Limit is 50k blocks. We'll fetch last 40k to be safe.
-                const MAX_RANGE = BigInt(40000);
-                let fromBlock = currentBlock - MAX_RANGE;
-                if (fromBlock < 0n) fromBlock = 0n;
+                const currentBlock = await analyticsClient.getBlockNumber();
+                
+                // Helper to fetch logs in chunks with concurrency
+                const fetchLogsInChunksParallel = async (address: `0x${string}`, event: any, fromBlock: bigint, toBlock: bigint) => {
+                    const chunks: { from: bigint; to: bigint }[] = [];
+                    let start = fromBlock;
+                    while (start <= toBlock) {
+                        const end = (start + CHUNK_SIZE) > toBlock ? toBlock : (start + CHUNK_SIZE);
+                        chunks.push({ from: start, to: end });
+                        start = end + 1n;
+                    }
 
-                // --- 1. Fetch Basic Protocol Stats ---
+                    const results: any[] = [];
+                    for (let i = 0; i < chunks.length; i += CONCURRENCY_LIMIT) {
+                        const batch = chunks.slice(i, i + CONCURRENCY_LIMIT);
+                        const batchResults = await Promise.all(
+                            batch.map(async (chunk) => {
+                                try {
+                                    return await analyticsClient.getLogs({
+                                        address,
+                                        event,
+                                        fromBlock: chunk.from,
+                                        toBlock: chunk.to,
+                                    });
+                                } catch (e) {
+                                    console.error(`Failed to fetch logs ${chunk.from}-${chunk.to}`, e);
+                                    return [];
+                                }
+                            })
+                        );
+                        batchResults.forEach(logs => results.push(...logs));
+                        // Small delay between batches to be nice
+                        await new Promise(r => setTimeout(r, 50));
+                    }
+                    return results;
+                };
+
+                // --- 1. Fetch Logs (Parallel) ---
+                console.log(`Fetching stats from block ${DEPLOYMENT_BLOCK} to ${currentBlock}`);
+                
                 const [transferLogs, stakedLogs, unstakedLogs, yieldLogs] = await Promise.all([
-                    publicClient.getLogs({
-                        address: CONTRACTS.ElementNFT.address as `0x${string}`,
-                        event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'),
-                        fromBlock,
-                        toBlock: currentBlock,
-                    }),
-                    publicClient.getLogs({
-                        address: CONTRACTS.YieldVault.address as `0x${string}`,
-                        event: parseAbiItem('event Staked(address indexed user, uint256 indexed tokenId, uint8 tier, uint256 weight)'),
-                        fromBlock,
-                        toBlock: currentBlock,
-                    }),
-                    publicClient.getLogs({
-                        address: CONTRACTS.YieldVault.address as `0x${string}`,
-                        event: parseAbiItem('event Unstaked(address indexed user, uint256 indexed tokenId, uint256 reward)'),
-                        fromBlock,
-                        toBlock: currentBlock,
-                    }),
-                    publicClient.getLogs({
-                        address: CONTRACTS.YieldVault.address as `0x${string}`,
-                        event: parseAbiItem('event YieldClaimed(address indexed user, uint256 indexed tokenId, uint256 reward)'),
-                        fromBlock,
-                        toBlock: currentBlock,
-                    })
+                    fetchLogsInChunksParallel(
+                        CONTRACTS.ElementNFT.address as `0x${string}`,
+                        parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)'),
+                        DEPLOYMENT_BLOCK,
+                        currentBlock
+                    ),
+                    fetchLogsInChunksParallel(
+                        CONTRACTS.YieldVault.address as `0x${string}`,
+                        parseAbiItem('event Staked(address indexed user, uint256 indexed tokenId, uint8 tier, uint256 weight)'),
+                        DEPLOYMENT_BLOCK,
+                        currentBlock
+                    ),
+                    fetchLogsInChunksParallel(
+                        CONTRACTS.YieldVault.address as `0x${string}`,
+                        parseAbiItem('event Unstaked(address indexed user, uint256 indexed tokenId, uint256 reward)'),
+                        DEPLOYMENT_BLOCK,
+                        currentBlock
+                    ),
+                    fetchLogsInChunksParallel(
+                        CONTRACTS.YieldVault.address as `0x${string}`,
+                        parseAbiItem('event YieldClaimed(address indexed user, uint256 indexed tokenId, uint256 reward)'),
+                        DEPLOYMENT_BLOCK,
+                        currentBlock
+                    )
                 ]);
 
-                // --- 2. Process Basic Stats ---
+                if (!isMounted.current) return;
+
+                // --- 2. Process Stats ---
                 const owners = new Map<string, string>();
-                transferLogs.forEach(log => {
-                    const { to, tokenId } = log.args;
-                    if (to && tokenId) {
-                        if (to === '0x0000000000000000000000000000000000000000') {
-                            owners.delete(tokenId.toString());
-                        } else {
-                            owners.set(tokenId.toString(), to);
+                if (transferLogs) {
+                    transferLogs.forEach(log => {
+                        const { to, tokenId } = log.args;
+                        if (to && tokenId) {
+                            if (to === '0x0000000000000000000000000000000000000000') {
+                                owners.delete(tokenId.toString());
+                            } else {
+                                owners.set(tokenId.toString(), to);
+                            }
                         }
-                    }
-                });
+                    });
+                }
                 const uniqueAddresses = new Set(owners.values());
 
                 const stakedTokens = new Map<string, number>();
-                stakedLogs.forEach(log => {
-                    const { tokenId, tier } = log.args;
-                    if (tokenId && tier !== undefined) stakedTokens.set(tokenId.toString(), tier);
-                });
-                unstakedLogs.forEach(log => {
-                    const { tokenId } = log.args;
-                    if (tokenId) stakedTokens.delete(tokenId.toString());
-                });
+                if (stakedLogs) {
+                    stakedLogs.forEach(log => {
+                        const { tokenId, tier } = log.args;
+                        if (tokenId && tier !== undefined) stakedTokens.set(tokenId.toString(), tier);
+                    });
+                }
+                if (unstakedLogs) {
+                    unstakedLogs.forEach(log => {
+                        const { tokenId } = log.args;
+                        if (tokenId) stakedTokens.delete(tokenId.toString());
+                    });
+                }
 
                 const stakingByTier: { [key: number]: number } = { 1: 0, 2: 0, 3: 0 };
                 stakedTokens.forEach((tier) => {
@@ -98,8 +152,8 @@ export function useProtocolStats() {
 
                 let totalYield = BigInt(0);
                 const allRewardEvents = [
-                    ...unstakedLogs.map(l => ({ ...l, reward: l.args.reward })),
-                    ...yieldLogs.map(l => ({ ...l, reward: l.args.reward }))
+                    ...(unstakedLogs || []).map(l => ({ ...l, reward: l.args.reward })),
+                    ...(yieldLogs || []).map(l => ({ ...l, reward: l.args.reward }))
                 ].sort((a, b) => Number(a.blockNumber) - Number(b.blockNumber));
 
                 const yieldHistoryPoints: { date: string, value: number }[] = [];
@@ -107,7 +161,7 @@ export function useProtocolStats() {
                 allRewardEvents.forEach(e => {
                     if (e.reward) {
                         totalYield += e.reward;
-                        // USDC has 6 decimals, not 18 like ETH
+                        // USDC has 6 decimals
                         cumulativeYield += Number(e.reward) / 1e6;
                         yieldHistoryPoints.push({
                             date: `Block ${e.blockNumber}`,
@@ -121,18 +175,18 @@ export function useProtocolStats() {
                     sampledHistory.push(yieldHistoryPoints[yieldHistoryPoints.length - 1]);
                 }
 
-                // --- 3. Process Volume & TVL (Uniswap V3) ---
+                // --- 3. Process Volume & TVL (Current State) ---
                 const poolAddress = CONTRACTS.Pool.address as `0x${string}`;
 
                 // Fetch Balances for TVL
                 const [wethBal, usdcBal] = await Promise.all([
-                    publicClient.readContract({
+                    analyticsClient.readContract({
                         address: CONTRACTS.WETH.address as `0x${string}`,
                         abi: [parseAbiItem('function balanceOf(address) view returns (uint256)')],
                         functionName: 'balanceOf',
                         args: [poolAddress]
                     }) as Promise<bigint>,
-                    publicClient.readContract({
+                    analyticsClient.readContract({
                         address: CONTRACTS.USDC.address as `0x${string}`,
                         abi: [parseAbiItem('function balanceOf(address) view returns (uint256)')],
                         functionName: 'balanceOf',
@@ -140,13 +194,9 @@ export function useProtocolStats() {
                     }) as Promise<bigint>
                 ]);
 
-                // Calculate TVL: Just sum both as "Total Liquidity" roughly in logic, but for display let's show WETH + USDC
-                // For the UI, we pass a single string. Let's pass WETH amount + " WETH" for now as it's the main asset.
-                // Or better: formatEther(wethBal)
-
-                // Fetch Swaps for Volume
+                // Fetch Swaps for Volume (shorter range for speed)
                 const volumeFromBlock = currentBlock - 7200n;
-                const swapLogs = await publicClient.getLogs({
+                const swapLogs = await analyticsClient.getLogs({
                     address: poolAddress,
                     event: parseAbiItem('event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)'),
                     fromBlock: volumeFromBlock > 0n ? volumeFromBlock : 0n,
@@ -160,7 +210,7 @@ export function useProtocolStats() {
                 });
 
                 // Fetch YieldVault's USDC balance for actual TVL
-                const vaultUsdc = await publicClient.readContract({
+                const vaultUsdc = await analyticsClient.readContract({
                     address: CONTRACTS.USDC.address as `0x${string}`,
                     abi: [parseAbiItem('function balanceOf(address) view returns (uint256)')],
                     functionName: 'balanceOf',
@@ -170,25 +220,30 @@ export function useProtocolStats() {
                 setStats({
                     uniqueHolders: uniqueAddresses.size,
                     totalStaked: stakedTokens.size,
-                    // Format as USDC (6 decimals) not ETH (18 decimals)
                     totalYieldClaimed: (Number(totalYield) / 1e6).toFixed(6),
                     stakingByTier,
                     yieldHistory: sampledHistory.length > 0 ? sampledHistory : [{ date: 'Start', value: 0 }],
                     isLoading: false,
                     volume24h: formatEther(volumeWeth),
-                    tvl: (Number(vaultUsdc) / 1e6).toFixed(2), // USDC has 6 decimals
+                    tvl: (Number(vaultUsdc) / 1e6).toFixed(2),
                 });
 
             } catch (error) {
                 console.error('Error fetching protocol stats:', error);
-                setStats(prev => ({ ...prev, isLoading: false }));
+                if (isMounted.current) {
+                    setStats(prev => ({ ...prev, isLoading: false }));
+                }
             }
         };
 
         fetchStats();
-        const interval = setInterval(fetchStats, 30000);
-        return () => clearInterval(interval);
-    }, [publicClient]);
+        // Poll every 5 minutes (reduced frequency)
+        const interval = setInterval(fetchStats, 300000);
+        return () => {
+            isMounted.current = false;
+            clearInterval(interval);
+        };
+    }, []);
 
     return stats;
 }
