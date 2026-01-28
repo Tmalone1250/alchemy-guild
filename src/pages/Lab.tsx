@@ -142,7 +142,7 @@ export default function Lab() {
         {/* Crafting Layout */}
         <div className="flex flex-col lg:flex-row items-center justify-center gap-8">
           {/* Input Slots */}
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap justify-center gap-4">
             {selectedSlots.map((slot, index) => (
               <motion.div
                 key={index}
