@@ -152,7 +152,7 @@ const LandingPage = () => {
                                 <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
                             </button>
 
-                            <a href="https://github.com/tmalone1250/alchemy-guild" target="_blank" rel="noopener noreferrer" className="font-lato text-[#d4af37] border-b border-transparent hover:border-[#d4af37] transition-colors pb-1 text-sm tracking-widest uppercase">
+                            <a href="./docs" target="_blank" rel="noopener noreferrer" className="font-lato text-[#d4af37] border-b border-transparent hover:border-[#d4af37] transition-colors pb-1 text-sm tracking-widest uppercase">
                                 View Documentation
                             </a>
                         </div>
