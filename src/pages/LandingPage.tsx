@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Sparkles, Wallet, ArrowRight, Shield, Gem, TrendingUp, Lock, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAccount, useDisconnect } from 'wagmi';
+import { useAppKit } from '@reown/appkit/react';
 
 // Alchemical Symbol SVG Paths  
 const SYMBOLS = {
@@ -11,6 +12,7 @@ const SYMBOLS = {
     water: "M12 22 L2 5 L22 5 Z",
     mercury: "M12 8 a 4 4 0 1 0 0 8 a 4 4 0 1 0 0 -8 M12 8 L12 4 M8 4 a 4 4 0 0 1 8 0 M12 16 L12 22 M8 19 L16 19",
     gold: "M12 12 m-5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0 M12 22 L12 22",
+    android: "M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993.0001.5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.0527-.5676l-.0015-.0011a.417.417 0 00-.5689.0527l-2.0183 3.4955a11.7543 11.7543 0 00-5.2372-1.2291c-1.9283 0-3.7022.4439-5.2394 1.2291L4.7431 5.3461a.417.417 0 00-.5678-.0527l-.0015.0011a.4158.4158 0 00-.0527.5676l1.9973 3.4592C2.6806 11.4284.4287 14.9381.4287 18.9959H23.571c0-4.0578-2.2515-7.5675-5.6895-9.6745"
 };
 
 const RUNES = ["ᚠ", "ᚢ", "ᚦ", "ᚨ", "ᚱ", "ᚲ", "ᚷ", "ᚹ", "ᚺ", "ᚾ", "ᛁ", "ᛃ", "ᛇ", "ᛈ", "ᛉ", "ᛊ", "ᛏ", "ᛒ", "ᛖ", "ᛗ", "ᛚ", "ᛜ", "ᛞ", "ᛟ"];
@@ -19,6 +21,7 @@ const LandingPage = () => {
     const navigate = useNavigate();
     const { address } = useAccount();
     const { disconnect } = useDisconnect();
+    const { open } = useAppKit();
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const [isTransmuting, setIsTransmuting] = useState(false);
     const [isHoveringCTA, setIsHoveringCTA] = useState(false);
@@ -102,7 +105,7 @@ const LandingPage = () => {
                         </button>
 
                         <button
-                            onClick={() => address ? navigate('/dashboard') : undefined}
+                            onClick={() => address ? navigate('/dashboard') : open()}
                             className="group relative px-6 py-2 border border-[#d4af37]/50 bg-[#0a0510]/80 backdrop-blur-md overflow-hidden transition-all hover:border-[#d4af37] hover:shadow-[0_0_15px_rgba(212,175,55,0.3)]"
                         >
                             <div className="absolute inset-0 bg-[#d4af37]/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
@@ -152,9 +155,16 @@ const LandingPage = () => {
                                 <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
                             </button>
 
-                            <a href="./docs" target="_blank" rel="noopener noreferrer" className="font-lato text-[#d4af37] border-b border-transparent hover:border-[#d4af37] transition-colors pb-1 text-sm tracking-widest uppercase">
-                                View Documentation
-                            </a>
+                            <div className="flex gap-4">
+                                <a href="/android-apk/alchemy-guild-v0.5-sepolia-testnet.apk" download className="font-lato text-[#d4af37] border-b border-transparent hover:border-[#d4af37] transition-colors pb-1 text-sm tracking-widest uppercase">
+                                    Download Android App
+                                </a>
+                                <a href="/android-apk/alchemy-guild-v0.5-sepolia-testnet.apk" download className="text-[#a4c639] hover:text-[#d4af37] transition-colors" title="Download Android App">
+                                    <svg viewBox="0 0 24 24" className="w-6 h-6 fill-current">
+                                        <path d={SYMBOLS.android} />
+                                    </svg>
+                                </a>
+                            </div>
                         </div>
 
                     </div>
