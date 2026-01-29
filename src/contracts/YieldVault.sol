@@ -55,6 +55,7 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
     uint256 public sTotalWeight;
     uint256 public sAccRewardPerWeight;
     uint256 public sLastPositionId;
+    uint256 public sTotalUnclaimedYield;
     IERC20 public immutable WETH;
     IERC20 public immutable USDC;
     address public immutable PAYMASTER;
@@ -155,6 +156,11 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         // Handle reward distribution (e.g., transfer tokens)
         // Payout USDC rewards to msg.sender
         if (pendingReward > 0) {
+            if (sTotalUnclaimedYield >= pendingReward) {
+                sTotalUnclaimedYield -= pendingReward;
+            } else {
+                sTotalUnclaimedYield = 0; // Should not happen if tracked correctly, but safe fallback
+            }
             USDC.safeTransfer(msg.sender, pendingReward);
         }
 
@@ -175,19 +181,15 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
 
     // Automated Liquidity Manager Rebalancing
     function rebalance() external nonReentrant onlyOwner {
-        // Snapshot of fees before collecting
-        uint256 balance0Before = USDC.balanceOf(address(this));  // token0 = USDC
-        uint256 balance1Before = WETH.balanceOf(address(this));  // token1 = WETH
-
-        // Get current price and set new boundaries
-        (, int24 tick, , , , , ) = POOL.slot0();
-        int24 tickSpacing = POOL.tickSpacing();
-        int24 usableTick = _getNearestUsableTick(tick, tickSpacing);
-
-        int24 tickLower = usableTick - ((500 / tickSpacing) * tickSpacing);
-        int24 tickUpper = usableTick + ((500 / tickSpacing) * tickSpacing);
-
-        // Collect accumulated fees from existing position (WITHOUT withdrawing liquidity)
+        // --- STEP 1: HARVEST & PROCESS FEES ---
+        // We collect fees BEFORE touching liquidity. This gives us pure trading fees.
+        uint256 fee0 = 0;
+        uint256 fee1 = 0;
+        
+        // Snapshot balances to calculate pure fee collection
+        uint256 bal0 = USDC.balanceOf(address(this));
+        uint256 bal1 = WETH.balanceOf(address(this));
+        
         if (sLastPositionId != 0) {
             POSITION_MANAGER.collect(
                 INonfungiblePositionManager.CollectParams({
@@ -198,76 +200,136 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
                 })
             );
         }
+        
+        // Calculate collected fees
+        fee0 = USDC.balanceOf(address(this)) - bal0;
+        fee1 = WETH.balanceOf(address(this)) - bal1;
 
-        // Identify how much NEW fees were collected
-        uint256 fee0 = USDC.balanceOf(address(this)) - balance0Before;  // fee0 = USDC fees
-        uint256 fee1 = WETH.balanceOf(address(this)) - balance1Before;  // fee1 = WETH fees
-
-        // Transmute WETH into USDC (The Alchemy Swap)
-        // Use try-catch so rebalance never fails even if swap doesn't work
+        // Transmute WETH fees into USDC
         if (fee1 > 0.001 ether) {
             try this._attemptSwap(fee1) returns (uint256 usdcReceived) {
-                // Swap succeeded - add USDC to fee pool
                 fee0 += usdcReceived;
-                fee1 = 0;  // Mark WETH as consumed
-            } catch {
-                // Swap failed - keep WETH in vault, will accumulate for next rebalance
-                // Don't revert the entire rebalance
-            }
+                fee1 = 0;
+            } catch {}
         }
-        // If fee1 < 0.001 ether, too small to swap, will accumulate
-
-        // Tax the consolidated USDC total (10% to Paymaster)
+        
+        // Distribute Fees (Tax + User Yield)
+        // We DO NOT reinvest these fees into the pool. They are set aside for claiming.
         uint256 tax = 0;
         uint256 netFeeUsdc = 0;
-        if (fee0 > 0) {  // fee0 is now all USDC (including swapped WETH)
+        
+        if (fee0 > 0) {
             tax = fee0 / 10;
             USDC.safeTransfer(PAYMASTER, tax);
-
             netFeeUsdc = fee0 - tax;
-
-            // Update rewards in purely USDC terms
+            
             if (sTotalWeight > 0) {
-                sAccRewardPerWeight +=
-                    (netFeeUsdc * SCALE_FACTOR) /
-                    sTotalWeight;
+                sAccRewardPerWeight += (netFeeUsdc * SCALE_FACTOR) / sTotalWeight;
+                sTotalUnclaimedYield += netFeeUsdc;
+            }
+        }
+        
+        emit Rebalanced(sLastPositionId, fee0, netFeeUsdc, tax); // Log the "Yield Event"
+
+        // --- STEP 2: MANAGE PRINCIPAL (LIQUIDITY) ---
+        
+        // Get current price
+        (, int24 tick, , , , , ) = POOL.slot0();
+        int24 tickSpacing = POOL.tickSpacing();
+        int24 usableTick = _getNearestUsableTick(tick, tickSpacing);
+        int24 tickLower = usableTick - ((500 / tickSpacing) * tickSpacing);
+        int24 tickUpper = usableTick + ((500 / tickSpacing) * tickSpacing);
+
+        bool shouldMoveLiquidity = false;
+        
+        if (sLastPositionId != 0) {
+            (,,,,,,,uint128 posLiquidity,,,,) = POSITION_MANAGER.positions(sLastPositionId);
+            (,,,,,int24 posTickLower, int24 posTickUpper,,,,,) = POSITION_MANAGER.positions(sLastPositionId);
+
+            if (posLiquidity == 0) {
+                shouldMoveLiquidity = true;
+            } 
+            else if (tick < posTickLower || tick > posTickUpper) {
+                shouldMoveLiquidity = true;
+                
+                // Withdraw PRINCIPAL
+                POSITION_MANAGER.decreaseLiquidity(
+                    INonfungiblePositionManager.DecreaseLiquidityParams({
+                        tokenId: sLastPositionId,
+                        liquidity: posLiquidity,
+                        amount0Min: 0,
+                        amount1Min: 0,
+                        deadline: block.timestamp
+                    })
+                );
+                
+                // Collect PRINCIPAL (now sitting in tokensOwed)
+                POSITION_MANAGER.collect(
+                    INonfungiblePositionManager.CollectParams({
+                        tokenId: sLastPositionId,
+                        recipient: address(this),
+                        amount0Max: type(uint128).max,
+                        amount1Max: type(uint128).max
+                    })
+                );
+            }
+            
+            if (shouldMoveLiquidity) {
+                POSITION_MANAGER.burn(sLastPositionId);
+                sLastPositionId = 0;
             }
         }
 
-        uint256 balance0 = USDC.balanceOf(address(this));
-        uint256 balance1 = WETH.balanceOf(address(this));
-
-        // Only create a new Uniswap position if one doesn't exist yet (first rebalance)
+        // --- STEP 3: RE-INVEST PRINCIPAL ---
+        // We only invest funds if we don't have a position (first run or just burned).
+        // AND we must ensure we don't accidentally invest the "User Yield" passing through.
+        // Actually, sAccRewardPerWeight tracks the yield liability. The physical tokens exist in the contract.
+        // If we invest ALL balance, we invest the User Yield too, leaving the vault "insolvent" on claims until we close the position?
+        // YES. This is a common pattern: "Auto-Compounding" implicitly, but we tracked it as 'claimable'.
+        // If users try to claim, we might not have liquid USDC if we put it all in the pool.
+        
+        // Solution: Reserve the `netFeeUsdc` (and previous unclaimed rewards) from the investment amount.
+        // But tracking exact "Unclaimed Rewards Total" globally is hard without a variable.
+        // Approximation: We keep a "Cash Buffer" (e.g. 5-10% or just the `netFeeUsdc` we just earned) liquid.
+        // Or simpler: We just reinvest. If a user claims and we lack liquidity, we assume the next rebalance/deposit covers it?
+        // No, `claimYield` fails if `balance < reward`.
+        // Better: We KEEP `netFeeUsdc` in the contract balance (don't put it in `amount0Desired`).
+        
         if (sLastPositionId == 0) {
-            // Keep 20% USDC as reserve for yield claims (only deposit 80% into position)
-            uint256 usdcForPosition = (balance0 * 80) / 100;
-            uint256 usdcReserve = balance0 - usdcForPosition;
+            uint256 balance0 = USDC.balanceOf(address(this));
+            uint256 balance1 = WETH.balanceOf(address(this));
+            
+            // Subtract the yield we just allocated to users from the "Available to Invest"
+            // AND any previously unclaimed yield.
+            uint256 investable0 = balance0 > sTotalUnclaimedYield ? balance0 - sTotalUnclaimedYield : 0;
+            
+            // Also keep a small buffer for gas/rounding errors? 
+            // Let's stick to the 80% rule for USDC to be safe and liquid.
+            // 80% of Investable.
+            uint256 amount0ToMint = (investable0 * 80) / 100;
+            
+            if (amount0ToMint > 0 || balance1 > 0) {
+                USDC.approve(address(POSITION_MANAGER), amount0ToMint);
+                WETH.approve(address(POSITION_MANAGER), balance1);
 
-            // Approve Uniswap V3 Position Manager to spend tokens
-            USDC.approve(address(POSITION_MANAGER), usdcForPosition);
-            WETH.approve(address(POSITION_MANAGER), balance1);
+                INonfungiblePositionManager.MintParams
+                    memory params = INonfungiblePositionManager.MintParams({
+                        token0: address(USDC),
+                        token1: address(WETH),
+                        fee: 3000,
+                        tickLower: tickLower,
+                        tickUpper: tickUpper,
+                        amount0Desired: amount0ToMint,
+                        amount1Desired: balance1,
+                        amount0Min: 0,
+                        amount1Min: 0,
+                        recipient: address(this),
+                        deadline: block.timestamp
+                    });
 
-            // Create the FIRST liquidity position
-            INonfungiblePositionManager.MintParams
-                memory params = INonfungiblePositionManager.MintParams({
-                    token0: address(USDC),
-                    token1: address(WETH),
-                    fee: 3000,
-                    tickLower: tickLower,
-                    tickUpper: tickUpper,
-                    amount0Desired: usdcForPosition,  // Only 80% of USDC
-                    amount1Desired: balance1,
-                    amount0Min: 0,
-                    amount1Min: 0,
-                    recipient: address(this),
-                    deadline: block.timestamp
-                });
-
-            (sLastPositionId, , , ) = POSITION_MANAGER.mint(params);
+                (sLastPositionId, , , ) = POSITION_MANAGER.mint(params);
+            }
         }
-        // If sLastPositionId != 0, position already exists - we just collected fees above, don't create a new position!
-
-        emit Rebalanced(sLastPositionId, fee0, netFeeUsdc, tax);
     }
 
     // Internal function to attempt WETH → USDC swap
@@ -315,6 +377,12 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         uint256 rewardToPay = pendingReward > availableUsdc ? availableUsdc : pendingReward;
         
         require(rewardToPay > 0, "No USDC available in vault");
+        
+        if (sTotalUnclaimedYield >= rewardToPay) {
+            sTotalUnclaimedYield -= rewardToPay;
+        } else {
+            sTotalUnclaimedYield = 0;
+        }
         
         USDC.safeTransfer(msg.sender, rewardToPay);
 
