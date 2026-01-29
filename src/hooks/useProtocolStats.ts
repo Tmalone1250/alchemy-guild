@@ -14,7 +14,7 @@ export interface ProtocolStats {
     tvl: string;
 }
 
-const CHUNK_SIZE = 100000n; // Increased chunk size for faster loading on publicnode
+const CHUNK_SIZE = 40000n; // Reduced to 40k to satisfy RPC limit (50k max)
 const CONCURRENCY_LIMIT = 5; // Parallel requests
 
 // Create a dedicated client for analytics to avoid WalletConnect rate limits
@@ -135,13 +135,13 @@ export function useProtocolStats() {
                 if (stakedLogs) {
                     stakedLogs.forEach(log => {
                         const { tokenId, tier } = log.args;
-                        if (tokenId && tier !== undefined) stakedTokens.set(tokenId.toString(), tier);
+                        if (tokenId !== undefined && tier !== undefined) stakedTokens.set(tokenId.toString(), Number(tier));
                     });
                 }
                 if (unstakedLogs) {
                     unstakedLogs.forEach(log => {
                         const { tokenId } = log.args;
-                        if (tokenId) stakedTokens.delete(tokenId.toString());
+                        if (tokenId !== undefined) stakedTokens.delete(tokenId.toString());
                     });
                 }
 
