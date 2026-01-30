@@ -31,7 +31,7 @@ export function MintWidget() {
 
   const handleMint = async () => {
     if (!selectedElement) return;
-    
+
     const elementIndex = ELEMENTS.findIndex(el => el.name === selectedElement);
     if (elementIndex === -1) return;
 
@@ -120,6 +120,11 @@ export function MintWidget() {
           'Select an Element'
         )}
       </Button>
+
+
+      <p className="text-xs text-muted-foreground text-center mt-3 animate-pulse">
+        ** Please refresh the page after minting to mint another. **
+      </p>
     </motion.div>
   );
 }

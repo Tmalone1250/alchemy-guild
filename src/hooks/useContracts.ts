@@ -10,9 +10,10 @@ import {
   YIELD_VAULT_ABI
 } from '@/config/abis';
 import { NFT } from '@/types/nft';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useSmartAccount } from './useSmartAccount';
 import { encodeFunctionData } from 'viem';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Simple ERC20 ABI for balanceOf
 const ERC20_ABI = [
@@ -34,11 +35,19 @@ export function useElementNFT() {
   const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
   const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
   const [smartAccountError, setSmartAccountError] = useState<Error | null>(null);
+  const queryClient = useQueryClient();
 
   // Determine which hash/status to use
   const activeHash = smartAccountHash || hash;
   
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: activeHash });
+
+  // Invalidate queries on success
+  useEffect(() => {
+    if (isSuccess) {
+      queryClient.invalidateQueries();
+    }
+  }, [isSuccess, queryClient]);
 
   const publicMint = async (element: number) => {
     // RESET STATE
@@ -57,6 +66,8 @@ export function useElementNFT() {
                 value: BigInt('2000000000000000'), // 0.002 ETH Protocol Fee
             });
             setSmartAccountHash(txHash);
+            
+            // Optimistic update or wait for receipt in useEffect
             return txHash;
         } catch (err: unknown) {
             console.error("Smart Account Mint Failed:", err);
@@ -93,9 +104,17 @@ export function useApproveNFT() {
   const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
   const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
   const [smartAccountError, setSmartAccountError] = useState<Error | null>(null);
+  const queryClient = useQueryClient();
 
   const activeHash = smartAccountHash || hash;
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: activeHash });
+
+  // Invalidate queries on success
+  useEffect(() => {
+    if (isSuccess) {
+      queryClient.invalidateQueries();
+    }
+  }, [isSuccess, queryClient]);
 
   const approve = async (to: string, tokenId: bigint) => {
     setSmartAccountError(null);
@@ -195,9 +214,17 @@ export function useAlchemist() {
   const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
   const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
   const [smartAccountError, setSmartAccountError] = useState<Error | null>(null);
+  const queryClient = useQueryClient();
 
   const activeHash = smartAccountHash || hash;
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: activeHash });
+
+  // Invalidate queries on success
+  useEffect(() => {
+    if (isSuccess) {
+      queryClient.invalidateQueries();
+    }
+  }, [isSuccess, queryClient]);
 
   const craft = async (tokenIds: [bigint, bigint, bigint]) => {
      // RESET STATE
@@ -252,9 +279,17 @@ export function useYieldVault() {
   const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
   const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
   const [smartAccountError, setSmartAccountError] = useState<Error | null>(null);
+  const queryClient = useQueryClient();
 
   const activeHash = smartAccountHash || hash;
   const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: activeHash });
+
+  // Invalidate queries on success
+  useEffect(() => {
+    if (isSuccess) {
+      queryClient.invalidateQueries();
+    }
+  }, [isSuccess, queryClient]);
 
   const stake = async (tokenId: bigint, tier: number) => {
     setSmartAccountError(null);
@@ -263,7 +298,20 @@ export function useYieldVault() {
     if (isSmartAccountReady && smartAccountClient) {
         try {
             setIsSmartAccountPending(true);
-            const txHash = await smartAccountClient.writeContract({
+
+            // Create Self-Funded Client (User pays gas)
+            const selfFundedClient = createSmartAccountClient({
+                account: smartAccountClient.account,
+                chain: sepolia,
+                bundlerTransport: http(`https://api.pimlico.io/v2/sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
+                userOperation: {
+                    estimateFeesPerGas: async () => {
+                        return (await pimlicoClient.getUserOperationGasPrice()).fast;
+                    }
+                }
+            });
+
+            const txHash = await selfFundedClient.writeContract({
                 address: CONTRACTS.YieldVault.address,
                 abi: YIELD_VAULT_ABI,
                 functionName: 'stake',
