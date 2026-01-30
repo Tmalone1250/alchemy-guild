@@ -1,4 +1,7 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useReadContracts } from 'wagmi';
+import { createSmartAccountClient } from 'permissionless';
+import { http } from 'viem';
+import { pimlicoClient } from '@/config/pimlico';
 import { sepolia } from 'viem/chains';
 import { CONTRACTS } from '@/config/contracts';
 import {
@@ -295,7 +298,20 @@ export function useYieldVault() {
     if (isSmartAccountReady && smartAccountClient) {
         try {
             setIsSmartAccountPending(true);
-            const txHash = await smartAccountClient.writeContract({
+            
+            // Create Self-Funded Client (User pays gas)
+            const selfFundedClient = createSmartAccountClient({
+                account: smartAccountClient.account,
+                chain: sepolia,
+                bundlerTransport: http(`https://api.pimlico.io/v2/sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
+                userOperation: {
+                    estimateFeesPerGas: async () => {
+                        return (await pimlicoClient.getUserOperationGasPrice()).fast;
+                    }
+                }
+            });
+
+            const txHash = await selfFundedClient.writeContract({
                 address: CONTRACTS.YieldVault.address,
                 abi: YIELD_VAULT_ABI,
                 functionName: 'unstake',
@@ -330,7 +346,20 @@ export function useYieldVault() {
     if (isSmartAccountReady && smartAccountClient) {
         try {
             setIsSmartAccountPending(true);
-            const txHash = await smartAccountClient.writeContract({
+
+            // Create Self-Funded Client (User pays gas)
+            const selfFundedClient = createSmartAccountClient({
+                account: smartAccountClient.account,
+                chain: sepolia,
+                bundlerTransport: http(`https://api.pimlico.io/v2/sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
+                userOperation: {
+                    estimateFeesPerGas: async () => {
+                        return (await pimlicoClient.getUserOperationGasPrice()).fast;
+                    }
+                }
+            });
+
+            const txHash = await selfFundedClient.writeContract({
                 address: CONTRACTS.YieldVault.address,
                 abi: YIELD_VAULT_ABI,
                 functionName: 'claimYield',
