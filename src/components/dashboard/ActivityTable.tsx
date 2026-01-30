@@ -34,7 +34,7 @@ function formatTimeAgo(timestamp: number): string {
 export function ActivityTable() {
   const { activities, isLoading } = useRecentActivity();
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 6;
+  const itemsPerPage = 10;
 
   const totalPages = Math.ceil(activities.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;

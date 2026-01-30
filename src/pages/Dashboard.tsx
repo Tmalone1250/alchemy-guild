@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { Vault, TrendingUp, Layers, Coins } from 'lucide-react';
 import { StatCard } from '@/components/ui/stat-card';
 import { MintWidget } from '@/components/dashboard/MintWidget';
+import { SmartWalletCard } from '@/components/dashboard/SmartWalletCard';
+import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import { ActivityTable } from '@/components/dashboard/ActivityTable';
 import { useAccount, useReadContract } from 'wagmi';
 import { CONTRACTS } from '@/config/contracts';
@@ -109,7 +111,8 @@ export default function Dashboard() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Mint Widget */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 space-y-6">
+          <SmartWalletCard />
           <MintWidget />
         </div>
 
@@ -118,6 +121,7 @@ export default function Dashboard() {
           <ActivityTable />
         </div>
       </div>
+      <OnboardingModal />
     </div>
   );
 }

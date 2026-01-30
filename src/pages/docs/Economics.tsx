@@ -18,19 +18,23 @@ export default function Economics() {
             <div className="space-y-12">
                 <section className="space-y-4">
                     <h2 className="text-2xl font-semibold border-b border-border pb-2">Revenue Streams</h2>
-                    <div className="grid md:grid-cols-2 gap-6">
+                    <div className="grid md:grid-cols-3 gap-6">
                         <div className="p-5 rounded-lg border border-border bg-card">
                             <h3 className="font-bold text-lg mb-2">1. Minting Costs</h3>
                             <p className="text-sm text-muted-foreground">
-                                Players pay ETH to conjure base elements. A portion of this ETH is swapped to USDC and added to the reward pool for existing stakers,
-                                creating an immediate incentive for early adopters.
+                                Players pay a small fee (0.01 ETH) to conjure base elements. This capital initializes the Treasury.
                             </p>
                         </div>
                         <div className="p-5 rounded-lg border border-border bg-card">
                             <h3 className="font-bold text-lg mb-2">2. Trading Fees</h3>
                             <p className="text-sm text-muted-foreground">
-                                The Treasury manages concentrated liquidity positions on Uniswap V3. As users trade against these pools,
-                                fees are collected and distributed to the Vault.
+                                The Protocol manages a concentrated liquidity position on Uniswap V3. 90% of fees go to Stakers.
+                            </p>
+                        </div>
+                        <div className="p-5 rounded-lg border border-border bg-card">
+                            <h3 className="font-bold text-lg mb-2">3. Sustainable Gas</h3>
+                            <p className="text-sm text-muted-foreground">
+                                10% of all Yield is taxed to fund the <strong>Paymaster</strong>. This ensures the protocol can sponsor gas fees indefinitely.
                             </p>
                         </div>
                     </div>

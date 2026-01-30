@@ -1,4 +1,5 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useReadContracts } from 'wagmi';
+import { sepolia } from 'viem/chains';
 import { CONTRACTS } from '@/config/contracts';
 import {
   ELEMENT_NFT_ABI,
@@ -6,7 +7,9 @@ import {
   YIELD_VAULT_ABI
 } from '@/config/abis';
 import { NFT } from '@/types/nft';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useSmartAccount } from './useSmartAccount';
+import { encodeFunctionData } from 'viem';
 
 // Simple ERC20 ABI for balanceOf
 const ERC20_ABI = [
@@ -23,10 +26,45 @@ const ELEMENT_NAMES = ['Earth', 'Water', 'Wind', 'Fire', 'Ice', 'Lightning', 'Pl
 const TIER_NAMES = ['Lead', 'Silver', 'Gold'] as const;
 
 export function useElementNFT() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending: isWagmiPending, error: wagmiError } = useWriteContract();
+  const { smartAccountClient, isReady: isSmartAccountReady } = useSmartAccount();
+  const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
+  const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
+  const [smartAccountError, setSmartAccountError] = useState<Error | null>(null);
+
+  // Determine which hash/status to use
+  const activeHash = smartAccountHash || hash;
+  
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: activeHash });
 
   const publicMint = async (element: number) => {
+    // RESET STATE
+    setSmartAccountError(null);
+    setSmartAccountHash(undefined);
+    
+    // Try Smart Account first (Gasless)
+    if (isSmartAccountReady && smartAccountClient) {
+        try {
+            setIsSmartAccountPending(true);
+            const txHash = await smartAccountClient.writeContract({
+                address: CONTRACTS.ElementNFT.address,
+                abi: ELEMENT_NFT_ABI,
+                functionName: 'publicMint',
+                args: [element],
+                value: BigInt('2000000000000000'), // 0.002 ETH Protocol Fee
+            });
+            setSmartAccountHash(txHash);
+            return txHash;
+        } catch (err: unknown) {
+            console.error("Smart Account Mint Failed:", err);
+            setSmartAccountError(err as Error);
+            throw err;
+        } finally {
+            setIsSmartAccountPending(false);
+        }
+    }
+
+    // Fallback to EOA
     return writeContract({
       address: CONTRACTS.ElementNFT.address,
       abi: ELEMENT_NFT_ABI,
@@ -38,19 +76,50 @@ export function useElementNFT() {
 
   return {
     publicMint,
-    isPending,
+    isPending: isWagmiPending || isSmartAccountPending,
     isConfirming,
     isSuccess,
-    error,
-    hash,
+    error: wagmiError || smartAccountError,
+    hash: activeHash,
   };
 }
 
 export function useApproveNFT() {
   const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { smartAccountClient, isReady: isSmartAccountReady } = useSmartAccount();
+  const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
+  const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
+  const [smartAccountError, setSmartAccountError] = useState<Error | null>(null);
+
+  const activeHash = smartAccountHash || hash;
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: activeHash });
 
   const approve = async (to: string, tokenId: bigint) => {
+    setSmartAccountError(null);
+    setSmartAccountHash(undefined);
+
+    if (isSmartAccountReady && smartAccountClient) {
+        try {
+            setIsSmartAccountPending(true);
+            const txHash = await smartAccountClient.writeContract({
+                address: CONTRACTS.ElementNFT.address,
+                abi: ELEMENT_NFT_ABI,
+                functionName: 'approve',
+                args: [to, tokenId],
+                chain: sepolia,
+                account: smartAccountClient.account,
+            });
+            setSmartAccountHash(txHash);
+            return txHash;
+        } catch (err: unknown) {
+            console.error("Smart Account Approve Failed:", err);
+            setSmartAccountError(err as Error);
+            throw err;
+        } finally {
+            setIsSmartAccountPending(false);
+        }
+    }
+
     return writeContract({
       address: CONTRACTS.ElementNFT.address,
       abi: ELEMENT_NFT_ABI,
@@ -60,6 +129,31 @@ export function useApproveNFT() {
   };
 
   const setApprovalForAll = async (operator: string, approved: boolean) => {
+    setSmartAccountError(null);
+    setSmartAccountHash(undefined);
+
+    if (isSmartAccountReady && smartAccountClient) {
+        try {
+            setIsSmartAccountPending(true);
+            const txHash = await smartAccountClient.writeContract({
+                address: CONTRACTS.ElementNFT.address,
+                abi: ELEMENT_NFT_ABI,
+                functionName: 'setApprovalForAll',
+                args: [operator, approved],
+                chain: sepolia,
+                account: smartAccountClient.account,
+            });
+            setSmartAccountHash(txHash);
+            return txHash;
+        } catch (err: unknown) {
+            console.error("Smart Account SetApprovalForAll Failed:", err);
+            setSmartAccountError(err as Error);
+            throw err;
+        } finally {
+            setIsSmartAccountPending(false);
+        }
+    }
+
     return writeContract({
       address: CONTRACTS.ElementNFT.address,
       abi: ELEMENT_NFT_ABI,
@@ -71,11 +165,11 @@ export function useApproveNFT() {
   return {
     approve,
     setApprovalForAll,
-    isPending,
+    isPending: isPending || isSmartAccountPending,
     isConfirming,
     isSuccess,
-    error,
-    hash,
+    error: error || smartAccountError,
+    hash: activeHash,
   };
 }
 
@@ -93,10 +187,43 @@ export function useNFTApproval(owner: string, operator: string) {
 }
 
 export function useAlchemist() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending: isWagmiPending, error: wagmiError } = useWriteContract();
+  const { smartAccountClient, isReady: isSmartAccountReady } = useSmartAccount();
+  const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
+  const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
+  const [smartAccountError, setSmartAccountError] = useState<Error | null>(null);
+
+  const activeHash = smartAccountHash || hash;
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: activeHash });
 
   const craft = async (tokenIds: [bigint, bigint, bigint]) => {
+     // RESET STATE
+    setSmartAccountError(null);
+    setSmartAccountHash(undefined);
+    
+     if (isSmartAccountReady && smartAccountClient) {
+        try {
+            setIsSmartAccountPending(true);
+            const txHash = await smartAccountClient.writeContract({
+                address: CONTRACTS.Alchemist.address,
+                abi: ALCHEMIST_CONTRACT_ABI,
+                functionName: 'craft',
+                args: [tokenIds],
+                value: BigInt('2000000000000000'), // 0.002 ETH Protocol Fee
+                chain: sepolia,
+                account: smartAccountClient.account,
+            });
+            setSmartAccountHash(txHash);
+            return txHash;
+        } catch (err: unknown) {
+            console.error("Smart Account Craft Failed:", err);
+            setSmartAccountError(err as Error);
+            throw err;
+        } finally {
+            setIsSmartAccountPending(false);
+        }
+    }
+
     return writeContract({
       address: CONTRACTS.Alchemist.address,
       abi: ALCHEMIST_CONTRACT_ABI,
@@ -108,19 +235,51 @@ export function useAlchemist() {
 
   return {
     craft,
-    isPending,
+    isPending: isWagmiPending || isSmartAccountPending,
     isConfirming,
     isSuccess,
-    error,
-    hash,
+    error: wagmiError || smartAccountError,
+    hash: activeHash,
   };
 }
 
 export function useYieldVault() {
   const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { smartAccountClient, isReady: isSmartAccountReady } = useSmartAccount();
+  const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
+  const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
+  const [smartAccountError, setSmartAccountError] = useState<Error | null>(null);
+
+  const activeHash = smartAccountHash || hash;
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: activeHash });
 
   const stake = async (tokenId: bigint, tier: number) => {
+    setSmartAccountError(null);
+    setSmartAccountHash(undefined);
+
+    if (isSmartAccountReady && smartAccountClient) {
+        try {
+            setIsSmartAccountPending(true);
+            const txHash = await smartAccountClient.writeContract({
+                address: CONTRACTS.YieldVault.address,
+                abi: YIELD_VAULT_ABI,
+                functionName: 'stake',
+                args: [tokenId, tier],
+                value: BigInt(0),
+                chain: sepolia,
+                account: smartAccountClient.account,
+            });
+            setSmartAccountHash(txHash);
+            return txHash;
+        } catch (err: unknown) {
+            console.error("Smart Account Stake Failed:", err);
+            setSmartAccountError(err as Error);
+            throw err;
+        } finally {
+            setIsSmartAccountPending(false);
+        }
+    }
+
     return writeContract({
       address: CONTRACTS.YieldVault.address,
       abi: YIELD_VAULT_ABI,
@@ -130,6 +289,32 @@ export function useYieldVault() {
   };
 
   const unstake = async (tokenId: bigint) => {
+    setSmartAccountError(null);
+    setSmartAccountHash(undefined);
+
+    if (isSmartAccountReady && smartAccountClient) {
+        try {
+            setIsSmartAccountPending(true);
+            const txHash = await smartAccountClient.writeContract({
+                address: CONTRACTS.YieldVault.address,
+                abi: YIELD_VAULT_ABI,
+                functionName: 'unstake',
+                args: [tokenId],
+                value: BigInt(0),
+                chain: sepolia,
+                account: smartAccountClient.account,
+            });
+            setSmartAccountHash(txHash);
+            return txHash;
+        } catch (err: unknown) {
+            console.error("Smart Account Unstake Failed:", err);
+            setSmartAccountError(err as Error);
+            throw err;
+        } finally {
+            setIsSmartAccountPending(false);
+        }
+    }
+
     return writeContract({
       address: CONTRACTS.YieldVault.address,
       abi: YIELD_VAULT_ABI,
@@ -139,6 +324,32 @@ export function useYieldVault() {
   };
 
   const claimYield = async (tokenId: bigint) => {
+    setSmartAccountError(null);
+    setSmartAccountHash(undefined);
+
+    if (isSmartAccountReady && smartAccountClient) {
+        try {
+            setIsSmartAccountPending(true);
+            const txHash = await smartAccountClient.writeContract({
+                address: CONTRACTS.YieldVault.address,
+                abi: YIELD_VAULT_ABI,
+                functionName: 'claimYield',
+                args: [tokenId],
+                value: BigInt(0),
+                chain: sepolia,
+                account: smartAccountClient.account,
+            });
+            setSmartAccountHash(txHash);
+            return txHash;
+        } catch (err: unknown) {
+            console.error("Smart Account Claim Yield Failed:", err);
+            setSmartAccountError(err as Error);
+            throw err;
+        } finally {
+            setIsSmartAccountPending(false);
+        }
+    }
+
     return writeContract({
       address: CONTRACTS.YieldVault.address,
       abi: YIELD_VAULT_ABI,

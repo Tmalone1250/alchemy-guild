@@ -25,6 +25,10 @@ export default function Intro() {
                         Instead of just depositing tokens, you become an Alchemist in a world of elements.
                         By mastering the transmutation of Water, Fire, Earth, and Wind, you unlock higher tiers of power and yieldshare.
                     </p>
+                    <p className="text-muted-foreground leading-7 mt-4">
+                        Powered by <strong className="text-foreground">ERC-4337 Account Abstraction</strong>, the entire experience is designed to be frictionless.
+                        Qualifying actions like Minting and Staking are <span className="text-primary font-medium">Gasless</span>, sponsored directly by the protocol's self-sustaining Treasury.
+                    </p>
                 </section>
 
                 <section className="grid md:grid-cols-2 gap-6 mt-8">

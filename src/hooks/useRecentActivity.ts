@@ -32,7 +32,7 @@ export function useRecentActivity() {
 
         try {
             const currentBlock = await publicClient.getBlockNumber();
-            const fromBlock = currentBlock - 5000n; // Look back ~5000 blocks (adjustable)
+            const fromBlock = currentBlock - 2000n; // Look back ~2000 blocks (reduced to avoid RPC limits)
 
             // 1. Fetch YieldVault Logs
             const yieldVaultLogs = await publicClient.getLogs({

@@ -4,21 +4,23 @@ import { NFTCard } from '@/components/ui/nft-card';
 import { Progress } from '@/components/ui/progress';
 import { TIERS } from '@/config/contracts';
 import { toast } from 'sonner';
-import { useAccount } from 'wagmi';
+// import { useAccount } from 'wagmi';
 import { useYieldVault, useUserNFTs, useApproveNFT, useNFTApproval } from '@/hooks/useContracts';
 import { CONTRACTS } from '@/config/contracts';
 import { useRef, useState, useEffect } from 'react';
 
+import { useSmartAccount } from '@/hooks/useSmartAccount';
+
 export default function Vault() {
-  const { address } = useAccount();
-  const { nfts } = useUserNFTs(address);
+  const { smartAccountAddress } = useSmartAccount();
+  const { nfts } = useUserNFTs(smartAccountAddress);
   const { stake, unstake, claimYield, isPending: isVaultPending, isConfirming: isVaultConfirming, isSuccess: isVaultSuccess } = useYieldVault();
   const { approve, setApprovalForAll, isPending: isApprovePending, isConfirming: isApproveConfirming, isSuccess: isApproveSuccess } = useApproveNFT();
 
   // Check if Vault is approved for all (optimization: check individual if needed, but isApprovedForAll is better UX for multiple stakes)
   // For simplicity in this specific flow, we might just check/approve the specific token or all.
   // Let's use isApprovedForAll to minimize transactions if they stake multiple.
-  const { isApprovedForAll } = useNFTApproval(address || '', CONTRACTS.YieldVault.address);
+  const { isApprovedForAll } = useNFTApproval(smartAccountAddress || '', CONTRACTS.YieldVault.address);
 
   // Track pending action for toasts
   const [pendingAction, setPendingAction] = useState<string | null>(null);

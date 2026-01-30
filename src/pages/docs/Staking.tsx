@@ -36,24 +36,24 @@ export default function Staking() {
                                 <tr>
                                     <th className="px-4 py-3 font-medium">Element Tier</th>
                                     <th className="px-4 py-3 font-medium">Yield Weight</th>
-                                    <th className="px-4 py-3 font-medium">Reward Share</th>
+                                    <th className="px-4 py-3 font-medium">Bonus</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border/50">
                                 <tr className="bg-card/50">
-                                    <td className="px-4 py-3">Tier 1 (Base)</td>
-                                    <td className="px-4 py-3 font-mono text-primary">10</td>
-                                    <td className="px-4 py-3">1x</td>
+                                    <td className="px-4 py-3">Tier 1 (Lead)</td>
+                                    <td className="px-4 py-3 font-mono text-primary">100</td>
+                                    <td className="px-4 py-3">Base</td>
                                 </tr>
                                 <tr className="bg-card/50">
-                                    <td className="px-4 py-3">Tier 2 (Compound)</td>
-                                    <td className="px-4 py-3 font-mono text-purple-400">35</td>
-                                    <td className="px-4 py-3">3.5x</td>
+                                    <td className="px-4 py-3">Tier 2 (Silver)</td>
+                                    <td className="px-4 py-3 font-mono text-purple-400">135</td>
+                                    <td className="px-4 py-3">+35%</td>
                                 </tr>
                                 <tr className="bg-card/50">
-                                    <td className="px-4 py-3">Tier 3 (Primordial)</td>
-                                    <td className="px-4 py-3 font-mono text-amber-400">150</td>
-                                    <td className="px-4 py-3">15x</td>
+                                    <td className="px-4 py-3">Tier 3 (Gold)</td>
+                                    <td className="px-4 py-3 font-mono text-amber-400">175</td>
+                                    <td className="px-4 py-3">+75%</td>
                                 </tr>
                             </tbody>
                         </table>

@@ -1,12 +1,14 @@
 // Smart Contract Configuration - Sepolia Testnet
 
+export const PAYMASTER_ADDRESS = "0x353A1d7795bAdA4727179c09216b0e7DEE8B83D3";
+
 export const CONTRACTS = {
   ElementNFT: {
     address: '0x7106E305D55775C5ad7Bf818426B9d4fC4Ea0E6F' as const,
     chainId: 11155111, // Sepolia
   },
   YieldVault: {
-    address: '0x9966c0b49B97c4C7921552e6EedDDfd8C8C7CD4F' as const,
+    address: '0xE60035bb9051583Ad9db78Ad1a8CC38f1e4834F8' as const,
     chainId: 11155111,
   },
   Alchemist: {

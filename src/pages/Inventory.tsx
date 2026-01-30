@@ -8,9 +8,11 @@ import { cn } from '@/lib/utils';
 import { useAccount } from 'wagmi';
 import { useUserNFTs } from '@/hooks/useContracts';
 
+import { useSmartAccount } from '@/hooks/useSmartAccount';
+
 export default function Inventory() {
-  const { address } = useAccount();
-  const { balance, nfts, isLoading } = useUserNFTs(address);
+  const { smartAccountAddress } = useSmartAccount();
+  const { balance, nfts, isLoading } = useUserNFTs(smartAccountAddress);
   const [filterElement, setFilterElement] = useState<ElementType | null>(null);
   const [filterTier, setFilterTier] = useState<TierType | null>(null);
 

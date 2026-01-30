@@ -27,20 +27,20 @@ export default function Gameplay() {
                         <div className="bg-card/50 p-4 rounded-lg border border-border">
                             <span className="text-xs uppercase tracking-wider text-muted-foreground">Tier 1</span>
                             <h3 className="text-lg font-bold text-blue-400 mt-1">Base Elements</h3>
-                            <p className="text-sm text-muted-foreground mt-2">Water, Fire, Earth, Wind, Lightning, Ice</p>
-                            <div className="mt-3 text-xs bg-blue-500/10 text-blue-300 px-2 py-1 rounded w-fit">Mint Cost: 0.002 ETH</div>
+                            <p className="text-sm text-muted-foreground mt-2">Earth, Water, Wind, Fire, Ice, Lightning</p>
+                            <div className="mt-3 text-xs bg-blue-500/10 text-blue-300 px-2 py-1 rounded w-fit">Weight: 100</div>
                         </div>
                         <div className="bg-card/50 p-4 rounded-lg border border-border">
                             <span className="text-xs uppercase tracking-wider text-muted-foreground">Tier 2</span>
                             <h3 className="text-lg font-bold text-purple-400 mt-1">Compounds</h3>
                             <p className="text-sm text-muted-foreground mt-2">Plasma, Blizzard, Inferno, Tsunami, Quake, Tornado</p>
-                            <div className="mt-3 text-xs bg-purple-500/10 text-purple-300 px-2 py-1 rounded w-fit">Crafted via Ritual</div>
+                            <div className="mt-3 text-xs bg-purple-500/10 text-purple-300 px-2 py-1 rounded w-fit">Weight: 135 (+35%)</div>
                         </div>
                         <div className="bg-card/50 p-4 rounded-lg border border-border">
                             <span className="text-xs uppercase tracking-wider text-muted-foreground">Tier 3</span>
                             <h3 className="text-lg font-bold text-amber-400 mt-1">Primordials</h3>
-                            <p className="text-sm text-muted-foreground mt-2">Time, Space, Void, Nova, Spirit, Holy</p>
-                            <div className="mt-3 text-xs bg-amber-500/10 text-amber-300 px-2 py-1 rounded w-fit">Ultimate Power</div>
+                            <p className="text-sm text-muted-foreground mt-2">Holy, Dark, Gravity, Time, Bio, Spirit</p>
+                            <div className="mt-3 text-xs bg-amber-500/10 text-amber-300 px-2 py-1 rounded w-fit">Weight: 175 (+75%)</div>
                         </div>
                     </div>
                 </section>

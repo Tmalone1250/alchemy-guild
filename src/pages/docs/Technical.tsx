@@ -22,7 +22,21 @@ export default function Technical() {
 
                     <div className="space-y-4 mt-4">
                         <div className="p-4 rounded border border-border bg-card/50">
-                            <h3 className="font-mono text-primary font-bold">AlchemyGuild (ERC1155)</h3>
+                            <h3 className="font-mono text-primary font-bold">Smart Accounts (ERC-4337)</h3>
+                            <p className="text-sm mt-1 text-muted-foreground">
+                                Every user is assigned a Smart Account via `permissionless.js`. This allows for batched transactions
+                                and enables the "Gasless" experience by decoupling the key (signer) from the wallet (executor).
+                            </p>
+                        </div>
+                        <div className="p-4 rounded border border-border bg-card/50">
+                            <h3 className="font-mono text-primary font-bold">AlchemyPaymaster</h3>
+                            <p className="text-sm mt-1 text-muted-foreground">
+                                A specialized contract that holds the guild's gas funds. It validates transactions against a whitelist
+                                and "sponsors" the gas fees for Minting and Staking, so users don't need native ETH.
+                            </p>
+                        </div>
+                        <div className="p-4 rounded border border-border bg-card/50">
+                            <h3 className="font-mono text-primary font-bold">ElementNFT (ERC-721 Enumerable)</h3>
                             <p className="text-sm mt-1 text-muted-foreground">
                                 Handles the NFT tokens themselves. Supports batch minting and burning.
                                 Stores metadata on IPFS but maintains on-chain tracking of Element IDs and Tiers.
@@ -31,15 +45,8 @@ export default function Technical() {
                         <div className="p-4 rounded border border-border bg-card/50">
                             <h3 className="font-mono text-primary font-bold">YieldVault</h3>
                             <p className="text-sm mt-1 text-muted-foreground">
-                                The core logic for staking. It implements the "MasterChef" algorithm (SushiSwap style),
-                                using `accRewardPerShare` to calculate pending rewards for any user in O(1) time complexity, regardless of pool size.
-                            </p>
-                        </div>
-                        <div className="p-4 rounded border border-border bg-card/50">
-                            <h3 className="font-mono text-primary font-bold">The Alchemist</h3>
-                            <p className="text-sm mt-1 text-muted-foreground">
-                                Manages the crafting recipes. It validates that the user possesses the correct combination of inputs
-                                before authorizing the burn of input NFTs and the mint of the output NFT.
+                                The core logic for staking. It implements a standard yield farming algorithm,
+                                using `accRewardPerWeight` to calculate pending rewards for any user in O(1) time complexity.
                             </p>
                         </div>
                     </div>

@@ -8,7 +8,7 @@ import { CRAFT_FEE } from '@/config/contracts';
 import { NFT } from '@/types/nft';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { useAccount } from 'wagmi';
+// import { useAccount } from 'wagmi';
 import { useAlchemist, useUserNFTs } from '@/hooks/useContracts';
 
 
@@ -27,9 +27,11 @@ const RECIPES = [
   { inputs: ['Fire', 'Inferno', 'Inferno'], output: 'Spirit', outputTier: 3 },
 ];
 
+import { useSmartAccount } from '@/hooks/useSmartAccount';
+
 export default function Lab() {
-  const { address } = useAccount();
-  const { nfts, isLoading } = useUserNFTs(address);
+  const { smartAccountAddress } = useSmartAccount();
+  const { nfts, isLoading } = useUserNFTs(smartAccountAddress);
   const [selectedSlots, setSelectedSlots] = useState<(NFT | null)[]>([null, null, null]);
   const [showSelector, setShowSelector] = useState<number | null>(null);
   const [showRecipes, setShowRecipes] = useState(false);
