@@ -9,6 +9,10 @@ import { parseEther, formatEther } from 'viem';
 import { toast } from 'sonner';
 import { shortenAddress } from '@/lib/utils';
 import { SEPOLIA_CHAIN } from '@/config/contracts';
+import { createSmartAccountClient } from 'permissionless';
+import { http } from 'viem';
+import { sepolia } from 'viem/chains';
+import { pimlicoClient } from '@/config/pimlico';
 
 export function SmartWalletCard() {
     const { smartAccountAddress, isReady, smartAccountClient } = useSmartAccount();
@@ -67,12 +71,22 @@ export function SmartWalletCard() {
                 setIsWithdrawPending(true);
                 toast.loading('Processing withdrawal from Smart Account...', { id: 'wallet-action' });
 
-                // Send ETH from Smart Account to EOA
-                const txHash = await smartAccountClient.sendTransaction({
+                // Create a temporary client WITHOUT Paymaster for withdrawals (User pays gas)
+                const withdrawalClient = createSmartAccountClient({
+                    account: smartAccountClient.account,
+                    chain: sepolia,
+                    bundlerTransport: http(`https://api.pimlico.io/v2/sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
+                    userOperation: {
+                        estimateFeesPerGas: async () => {
+                            return (await pimlicoClient.getUserOperationGasPrice()).fast;
+                        }
+                    }
+                });
+
+                // Send ETH from Smart Account to EOA (Self-Funded Gas)
+                const txHash = await withdrawalClient.sendTransaction({
                     to: eoaAddress,
                     value: weiAmount,
-                    chain: SEPOLIA_CHAIN,
-                    account: smartAccountClient.account,
                 });
 
                 toast.success('Withdrawal successful!', { id: 'wallet-action' });
