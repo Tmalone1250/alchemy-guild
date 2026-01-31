@@ -22,7 +22,7 @@ export default function Economics() {
                         <div className="p-5 rounded-lg border border-border bg-card">
                             <h3 className="font-bold text-lg mb-2">1. Minting Costs</h3>
                             <p className="text-sm text-muted-foreground">
-                                Players pay a small fee (0.01 ETH) to conjure base elements. This capital initializes the Treasury.
+                                Players pay a small fee (0.002 ETH) to conjure base elements. <strong>100% of this fee</strong> is automatically injected into the Uniswap V3 Yield Vault to boost staking rewards.
                             </p>
                         </div>
                         <div className="p-5 rounded-lg border border-border bg-card">

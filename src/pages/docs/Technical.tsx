@@ -31,9 +31,12 @@ export default function Technical() {
                         <div className="p-4 rounded border border-border bg-card/50">
                             <h3 className="font-mono text-primary font-bold">AlchemyPaymaster</h3>
                             <p className="text-sm mt-1 text-muted-foreground">
-                                A specialized contract that holds the guild's gas funds. It validates transactions against a whitelist
-                                and "sponsors" the gas fees for Minting and Staking, so users don't need native ETH.
+                                A specialized contract that sponsors gas fees for specific Guild actions.
                             </p>
+                            <ul className="list-disc list-inside text-xs mt-2 text-muted-foreground space-y-1">
+                                <li><strong>Sponsored (Free Gas):</strong> Minting, Crafting, Staking, Unstaking, Claiming Yield.</li>
+                                <li><strong>Not Sponsored:</strong> Token Approvals (if not batched), Swapping on Uniswap, Bridging assets.</li>
+                            </ul>
                         </div>
                         <div className="p-4 rounded border border-border bg-card/50">
                             <h3 className="font-mono text-primary font-bold">ElementNFT (ERC-721 Enumerable)</h3>
