@@ -1,25 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.30;
 
-import {ISwapRouter} from "@v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import {INonfungiblePositionManager} from "@v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-import {IUniswapV3Pool} from "@v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {ISwapRouter, INonfungiblePositionManager, IUniswapV3Pool} from "./IUniswap.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {ElementNFT} from "./ElementNFT.sol";
 
+// SafeERC20 Wrapper to avoid Import Issues
+library SafeTransferLib {
+    function safeTransfer(IERC20 token, address to, uint256 amount) internal {
+        (bool success, bytes memory data) = address(token).call(abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
+        require(success && (data.length == 0 || abi.decode(data, (bool))), "Transfer failed");
+    }
+}
+
+interface IWETH is IERC20 {
+    function deposit() external payable;
+}
+
 contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
-    using SafeERC20 for IERC20;
+    using SafeTransferLib for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
     // Interface IERC721Receiver for minting/managing Uniswap V3 LP positions and Uniswap V3 for rebalancing
     INonfungiblePositionManager public immutable POSITION_MANAGER;
     ISwapRouter public immutable SWAP_ROUTER;
     IUniswapV3Pool public immutable POOL;
-    ElementNFT public immutable I_ELEMENT_NFT;
+    ElementNFT public I_ELEMENT_NFT;
 
     // Events
     event Staked(
@@ -44,6 +53,7 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         uint256 usdcDistributed,
         uint256 treasuryTax
     );
+    event ElementNFTSet(address indexed elementNFT);
 
     // Constants - scale factor (1e18) and tier weights (100, 135, 175)
     uint256 private constant SCALE_FACTOR = 1e18;
@@ -56,6 +66,7 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
     uint256 public sAccRewardPerWeight;
     uint256 public sLastPositionId;
     uint256 public sTotalUnclaimedYield;
+    // WETH Interface extended to include deposit
     IERC20 public immutable WETH;
     IERC20 public immutable USDC;
     address public immutable PAYMASTER;
@@ -86,7 +97,6 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         address _positionManager,
         address _swapRouter,
         address _pool,
-        address _elementNFT,
         address _weth,
         address _usdc,
         address _paymaster
@@ -94,10 +104,23 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         POSITION_MANAGER = INonfungiblePositionManager(_positionManager);
         SWAP_ROUTER = ISwapRouter(_swapRouter);
         POOL = IUniswapV3Pool(_pool);
-        I_ELEMENT_NFT = ElementNFT(_elementNFT);
         WETH = IERC20(_weth);
         USDC = IERC20(_usdc);
         PAYMASTER = _paymaster;
+    }
+
+    // Set ElementNFT address (Circular Dependency Resolution)
+    function setElementNFT(address _elementNFT) external onlyOwner {
+        require(address(I_ELEMENT_NFT) == address(0), "Already set");
+        I_ELEMENT_NFT = ElementNFT(_elementNFT);
+        emit ElementNFTSet(_elementNFT);
+    }
+
+    // Receive function to wrap ETH to WETH
+    receive() external payable {
+        if (msg.value > 0) {
+            IWETH(address(WETH)).deposit{value: msg.value}();
+        }
     }
 
     // getTierWeight() function

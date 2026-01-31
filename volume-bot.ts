@@ -5,8 +5,8 @@ dotenv.config();
 
 // --- Configuration ---
 const RPC_URL = process.env.VITE_INFURA_RPC_URL;
-const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const VAULT_ADDRESS = "0xE60035bb9051583Ad9db78Ad1a8CC38f1e4834F8";  // YieldVault (was pointing to Alchemist!)
+const BOT_PRIVATE_KEY = process.env.BOT_PRIVATE_KEY;
+const VAULT_ADDRESS = "0x11Ea6777Ff9cC8bc05c0cd54B646D5052ff18899";  // YieldVault (was pointing to Alchemist!)
 const SWAP_ROUTER_ADDRESS = "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E";
 const WETH_ADDRESS = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"; // Token1 (Lexicographically larger than USDC)
 const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"; // Token0
@@ -30,10 +30,10 @@ const ROUTER_ABI = [
 ];
 
 async function main() {
-    if (!PRIVATE_KEY || !RPC_URL) throw new Error("Missing env vars");
+    if (!BOT_PRIVATE_KEY || !RPC_URL) throw new Error("Missing env vars");
 
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+    const wallet = new ethers.Wallet(BOT_PRIVATE_KEY, provider);
 
     console.log(`\n🤖 Bot Active: ${wallet.address}`);
 
@@ -110,8 +110,8 @@ async function main() {
             // STEP A: Swap WETH -> USDC
             // WETH (Token1) -> USDC (Token0). Price (Token1/Token0) goes UP.
             // Limit must be > current. Use MAX.
-            const amountIn = ethers.parseEther("0.001");
-            console.log(`Creating Volatility: 0.001 WETH -> USDC`);
+            const amountIn = ethers.parseEther("0.1");
+            console.log(`Creating Volatility: 0.1 WETH -> USDC`);
 
             const swapParams = {
                 tokenIn: WETH_ADDRESS,

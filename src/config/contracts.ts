@@ -4,15 +4,15 @@ export const PAYMASTER_ADDRESS = "0x353A1d7795bAdA4727179c09216b0e7DEE8B83D3";
 
 export const CONTRACTS = {
   ElementNFT: {
-    address: '0x7106E305D55775C5ad7Bf818426B9d4fC4Ea0E6F' as const,
+    address: '0x2BFbf65eFEbEae93cbBEb791ed93fF8DEb4E02b9' as const,
     chainId: 11155111, // Sepolia
   },
   YieldVault: {
-    address: '0xE60035bb9051583Ad9db78Ad1a8CC38f1e4834F8' as const,
+    address: '0x11Ea6777Ff9cC8bc05c0cd54B646D5052ff18899' as const,
     chainId: 11155111,
   },
   Alchemist: {
-    address: '0x88fde738df4758f69240B0299C3Ff3d7963AC25A' as const,
+    address: '0x8abC5a1693dc45106E47e1Ec13a9d7FB150E94F0' as const,
     chainId: 11155111,
   },
   Treasury: {
