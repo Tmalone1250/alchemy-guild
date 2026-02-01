@@ -92,7 +92,6 @@ export default function Dashboard() {
           value={formatYieldIndex(accRewardPerWeight)}
           subtitle="Current multiplier"
           icon={TrendingUp}
-          trend={{ value: '+2.1%', positive: true }}
         />
         <StatCard
           title="Total Staked Weight"

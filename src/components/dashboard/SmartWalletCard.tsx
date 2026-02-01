@@ -5,11 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSmartAccount } from '@/hooks/useSmartAccount';
 import { useBalance, useSendTransaction, useAccount } from 'wagmi';
-import { parseEther, formatEther } from 'viem';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { parseEther, formatEther, encodeFunctionData, parseUnits, type Hex } from 'viem';
 import { toast } from 'sonner';
 import { shortenAddress } from '@/lib/utils';
-import { SEPOLIA_CHAIN } from '@/config/contracts';
+import { SEPOLIA_CHAIN, CONTRACTS } from '@/config/contracts';
 import { createSmartAccountClient } from 'permissionless';
+import { useReadContract } from 'wagmi';
 import { http } from 'viem';
 import { sepolia } from 'viem/chains';
 import { pimlicoClient } from '@/config/pimlico';
@@ -26,10 +34,28 @@ export function SmartWalletCard() {
         }
     });
 
+    const { data: usdcBalance } = useReadContract({
+        address: CONTRACTS.USDC.address,
+        abi: [{
+            name: 'balanceOf',
+            type: 'function',
+            stateMutability: 'view',
+            inputs: [{ name: 'account', type: 'address' }],
+            outputs: [{ name: '', type: 'uint256' }],
+        }] as const,
+        functionName: 'balanceOf',
+        args: smartAccountAddress ? [smartAccountAddress] : undefined,
+        query: {
+            enabled: !!smartAccountAddress,
+            refetchInterval: 5000,
+        }
+    });
+
     const { sendTransactionAsync, isPending: isDepositPending } = useSendTransaction();
 
     const [amount, setAmount] = useState('');
     const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
+    const [token, setToken] = useState<'ETH' | 'USDC'>('ETH');
     const [copied, setCopied] = useState(false);
     const [isWithdrawPending, setIsWithdrawPending] = useState(false);
 
@@ -83,11 +109,40 @@ export function SmartWalletCard() {
                     }
                 });
 
-                // Send ETH from Smart Account to EOA (Self-Funded Gas)
-                const txHash = await withdrawalClient.sendTransaction({
-                    to: eoaAddress,
-                    value: weiAmount,
-                });
+                let txHash;
+                if (token === 'ETH') {
+                    // Send ETH from Smart Account to EOA (Self-Funded Gas)
+                    txHash = await withdrawalClient.sendTransaction({
+                        to: eoaAddress,
+                        value: weiAmount,
+                        data: '0x'
+                    } as any);
+                } else {
+                    // Send USDC
+                    // 1. Check if amount is valid
+                    if (!amount || isNaN(Number(amount))) throw new Error("Invalid amount");
+
+                    // 2. Encode ERC20 transfer
+                    // USDC has 6 decimals
+                    const usdcAmount = parseUnits(amount, 6);
+
+                    const data = encodeFunctionData({
+                        abi: [{
+                            name: 'transfer',
+                            type: 'function',
+                            inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
+                            outputs: [{ name: '', type: 'bool' }]
+                        }],
+                        functionName: 'transfer',
+                        args: [eoaAddress, usdcAmount]
+                    });
+
+                    txHash = await withdrawalClient.sendTransaction({
+                        to: CONTRACTS.USDC.address,
+                        value: 0n,
+                        data: data as Hex
+                    } as any); // Type assertion to bypass strict KZG check on Sepolia config
+                }
 
                 toast.success('Withdrawal successful!', { id: 'wallet-action' });
                 setAmount('');
@@ -125,10 +180,18 @@ export function SmartWalletCard() {
 
                 {/* Balance Display */}
                 <div className="mb-6 p-4 rounded-xl bg-background/50 border border-border">
-                    <div className="text-sm text-muted-foreground mb-1">Available Funds</div>
-                    <div className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/50 bg-clip-text text-transparent">
-                        {balance ? parseFloat(formatEther(balance.value)).toFixed(4) : '0.0000'} ETH
+                    <div className="flex justify-between items-start mb-2">
+                        <div>
+                            <div className="text-sm text-muted-foreground mb-1">Total Balance</div>
+                            <div className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/50 bg-clip-text text-transparent">
+                                {balance ? parseFloat(formatEther(balance.value)).toFixed(4) : '0.0000'} ETH
+                            </div>
+                            <div className="text-lg font-semibold text-foreground/80 mt-1">
+                                {usdcBalance ? (Number(usdcBalance) / 1e6).toFixed(2) : '0.00'} USDC
+                            </div>
+                        </div>
                     </div>
+
                     {smartAccountAddress && (
                         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground bg-black/20 p-2 rounded-lg w-fit">
                             <span className="font-mono">{shortenAddress(smartAccountAddress)}</span>
@@ -150,7 +213,10 @@ export function SmartWalletCard() {
                 {/* Actions Tabs */}
                 <div className="flex bg-background/50 rounded-lg p-1 mb-4">
                     <button
-                        onClick={() => setMode('deposit')}
+                        onClick={() => {
+                            setMode('deposit');
+                            setToken('ETH');
+                        }}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${mode === 'deposit'
                             ? 'bg-primary text-primary-foreground shadow-sm'
                             : 'text-muted-foreground hover:text-foreground'
@@ -173,15 +239,35 @@ export function SmartWalletCard() {
                 <div className="space-y-4">
                     <div className="space-y-2">
                         <div className="flex justify-between text-xs">
-                            <span className="text-muted-foreground">Amount (ETH)</span>
+                            <span className="text-muted-foreground">Amount</span>
+                            <span className="text-muted-foreground">Balance: {token === 'ETH'
+                                ? (balance ? parseFloat(formatEther(balance.value)).toFixed(4) : '0.00')
+                                : (usdcBalance ? (Number(usdcBalance) / 1e6).toFixed(2) : '0.00')} {token}
+                            </span>
                         </div>
-                        <Input
-                            type="number"
-                            placeholder="0.00"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            className="bg-background/50 font-mono"
-                        />
+
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <Input
+                                    type="number"
+                                    placeholder="0.00"
+                                    value={amount}
+                                    onChange={(e) => setAmount(e.target.value)}
+                                    className="bg-background/50 font-mono"
+                                />
+                            </div>
+                            <div className="w-[100px]">
+                                <Select value={token} onValueChange={(v: 'ETH' | 'USDC') => setToken(v)}>
+                                    <SelectTrigger className="bg-background/50">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ETH">ETH</SelectItem>
+                                        {mode === 'withdraw' && <SelectItem value="USDC">USDC</SelectItem>}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
                     </div>
 
                     <Button
