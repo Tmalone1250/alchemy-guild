@@ -10,6 +10,9 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+lib
+out
+cache
 *.local
 
 # Editor directories and files
@@ -27,12 +30,8 @@ dist-ssr
 
 src/abi
 
-lib/
-out/
-cache/
-
-broadcast/
-scripts/
-deployment/
-manager/
-whitelist/
+broadcast
+scripts
+deployment
+manager
+whitelist

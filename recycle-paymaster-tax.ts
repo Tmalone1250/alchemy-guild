@@ -53,6 +53,17 @@ async function recycle() {
     const weth = new ethers.Contract(CONTRACTS.WETH.address, WETH_ABI, wallet);
     const router = new ethers.Contract(ROUTER_ADDRESS, ROUTER_ABI, wallet);
 
+    // 0. Check Owner Gas (ETH)
+    const ethBalanceStart = await provider.getBalance(wallet.address);
+    // console.log(`👤 Owner ETH Balance: ${ethers.formatEther(ethBalanceStart)} ETH`);
+
+    if (ethBalanceStart < ethers.parseEther("0.005")) {
+        console.error(`⚠️ Owner Wallet (${wallet.address}) is low on gas!`);
+        console.error(`   Balance: ${ethers.formatEther(ethBalanceStart)} ETH`);
+        console.error(`   Required: > 0.005 ETH to process withdrawals.`);
+        return;
+    }
+
     // 1. Check Paymaster USDC Balance
     const usdcBalance = await usdc.balanceOf(PAYMASTER_ADDRESS);
     console.log(`💰 Paymaster USDC Balance: ${ethers.formatUnits(usdcBalance, 6)} USDC`);
@@ -70,60 +81,46 @@ async function recycle() {
          return;
     }
 
-    // 2. Withdraw USDC from Paymaster to Owner (only if Paymaster has funds)
-    if (usdcBalance > 0n) {
-        console.log("🔻 Withdrawing USDC from Paymaster...");
-        try {
-            const withdrawTx = await paymaster.withdrawERC20(
-                CONTRACTS.USDC.address,
-                wallet.address,
-                usdcBalance
-            );
-            await withdrawTx.wait();
-            console.log("✅ Withdraw confirmed.");
-        } catch (e) {
-            console.error("❌ Withdraw Failed:", e);
-            return;
-        }
-    }
+    // 2. Withdraw USDC from Paymaster to Owner (only if Paymaster has > $1 USDC)
+    const MIN_USDC_THRESHOLD = 1000000n; // 1 USDC
     
-    // Recalculate total USDC to swap (Paymaster withdrawn + existing owner funds)
-    const totalUsdcToSwap = await usdc.balanceOf(wallet.address);
-
-
-
-    // 3. Swap USDC -> WETH (SKIPPING - Sepolia Liquidity Issue)
-    console.log(`⚠️ Skipping Uniswap execution due to testnet liquidity constraints.`);
-    console.log(`🔄 Performing Manual Recirculation (OTC: USDC kept, ETH sent)...`);
-    
-    // 4. Determine ETH amount to seed based on USDC swapped
-    // 1 USDC ~ 0.0003 ETH. Let's send equivalent.
-    // If totalUsdcToSwap < 1.0 (threshold), DO NOT FUND.
-    
-    if (totalUsdcToSwap < 1000000n) { // Less than 1.0 USDC
-        console.log("❌ Available USDC is too low to justify gas. Skipping cycle.");
-        return;
-    }
-    
-    // Calculate ETH amount (Simulated Rate: 1 USDC = 0.0003 ETH)
-    // 1e6 (1 USDC) * 3e14 (0.0003 ETH) / 1e6 = 3e14? No.
-    // Simple math: (USDC Amount * 0.0003 ether) / 1e6
-    const rate = ethers.parseEther("0.0003"); 
-    const ethToSeed = (totalUsdcToSwap * rate) / 1000000n;
-    
-    console.log(`💱 Simulated OTC Rate: ${ethers.formatUnits(totalUsdcToSwap, 6)} USDC => ${ethers.formatEther(ethToSeed)} ETH`); 
-
-    // 5. Deposit ETH to Paymaster
-    const ethBalance = await provider.getBalance(wallet.address);
-    console.log(`👤 Owner ETH Balance: ${ethers.formatEther(ethBalance)}`);
-    
-    if (ethBalance < ethToSeed) {
-        console.error("❌ Owner has insufficient ETH to seed Paymaster!");
+    if (usdcBalance < MIN_USDC_THRESHOLD) {
+        console.log(`⏳ Paymaster balance (${ethers.formatUnits(usdcBalance, 6)} USDC) below threshold ($1). Waiting...`);
         return;
     }
 
+    // Determine ETH to Seed (Simulated Rate: 1 USDC = 0.0003 ETH)
+    // We calculate this BEFORE withdrawing to ensure we have funds.
+    const RATE_ETH_PER_USDC = ethers.parseEther("0.0003"); 
+    const ethToSeed = (usdcBalance * RATE_ETH_PER_USDC) / 1000000n;
+
+    // Check Owner Balance for Gas + Seed
+    // Check Owner Gas (ETH)
+    const ethBalanceCheck = await provider.getBalance(wallet.address);
+    if (ethBalanceCheck < (ethToSeed + ethers.parseEther("0.01"))) { // Seed + Gas Buffer
+        console.error(`⚠️ Owner Wallet low on ETH! Cannot recycle.`);
+        console.error(`   Have: ${ethers.formatEther(ethBalanceCheck)}`);
+        console.error(`   Need: ${ethers.formatEther(ethToSeed)} (Seed) + Gas`);
+        return;
+    }
+
+    console.log(`🔻 Withdrawing ${ethers.formatUnits(usdcBalance, 6)} USDC...`);
+    try {
+        const withdrawTx = await paymaster.withdrawERC20(
+            CONTRACTS.USDC.address,
+            wallet.address,
+            usdcBalance
+        );
+        await withdrawTx.wait();
+        console.log("✅ Withdraw confirmed.");
+    } catch (e) {
+        console.error("❌ Withdraw Failed:", e);
+        return;
+    }
+    
+    // 3. Deposit equivalent ETH to Paymaster
     if (ethToSeed > 0n) {
-        console.log(`⛽ Funding Paymaster with ${ethers.formatEther(ethToSeed)} ETH...`);
+        console.log(`⛽ Recirculating: Sending ${ethers.formatEther(ethToSeed)} ETH to Paymaster...`);
         try {
             const depositTx = await paymaster.deposit({ value: ethToSeed });
             await depositTx.wait();
