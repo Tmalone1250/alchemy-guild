@@ -27,8 +27,12 @@ dist-ssr
 
 src/abi
 
-lib
-out
-cache
+lib/
+out/
+cache/
 
-broadcast
+broadcast/
+scripts/
+deployment/
+manager/
+whitelist/
