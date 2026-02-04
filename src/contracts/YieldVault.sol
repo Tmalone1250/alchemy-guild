@@ -2,6 +2,7 @@
 pragma solidity ^0.8.30;
 
 import {ISwapRouter, INonfungiblePositionManager, IUniswapV3Pool} from "./IUniswap.sol";
+import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/interfaces/IERC721Receiver.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -19,6 +20,7 @@ library SafeTransferLib {
 
 interface IWETH is IERC20 {
     function deposit() external payable;
+    function withdraw(uint256 amount) external;
 }
 
 contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
@@ -28,6 +30,7 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
     INonfungiblePositionManager public immutable POSITION_MANAGER;
     ISwapRouter public immutable SWAP_ROUTER;
     IUniswapV3Pool public immutable POOL;
+    IEntryPoint public immutable ENTRY_POINT;
     ElementNFT public I_ELEMENT_NFT;
 
     // Events
@@ -99,7 +102,8 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         address _pool,
         address _weth,
         address _usdc,
-        address _paymaster
+        address _paymaster,
+        address _entryPoint
     ) Ownable(msg.sender) {
         POSITION_MANAGER = INonfungiblePositionManager(_positionManager);
         SWAP_ROUTER = ISwapRouter(_swapRouter);
@@ -107,6 +111,7 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         WETH = IERC20(_weth);
         USDC = IERC20(_usdc);
         PAYMASTER = _paymaster;
+        ENTRY_POINT = IEntryPoint(_entryPoint);
     }
 
     // Set ElementNFT address (Circular Dependency Resolution)
@@ -118,7 +123,8 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
 
     // Receive function to wrap ETH to WETH
     receive() external payable {
-        if (msg.value > 0) {
+        // Only wrap if the ETH came from somewhere OTHER than the WETH contract (i.e. not a withdraw)
+        if (msg.sender != address(WETH) && msg.value > 0) {
             IWETH(address(WETH)).deposit{value: msg.value}();
         }
     }
@@ -225,34 +231,54 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         }
         
         // Calculate collected fees
+        // Calculate collected fees
         fee0 = USDC.balanceOf(address(this)) - bal0;
         fee1 = WETH.balanceOf(address(this)) - bal1;
 
-        // Transmute WETH fees into USDC
-        if (fee1 > 0.001 ether) {
-            try this._attemptSwap(fee1) returns (uint256 usdcReceived) {
-                fee0 += usdcReceived;
-                fee1 = 0;
+        // --- NEW RECYCLING LOGIC ---
+        // 1. Calculate Tax (10% of each token)
+        uint256 tax0 = fee0 / 10; // USGS Tax
+        uint256 tax1 = fee1 / 10; // WETH Tax
+        
+        uint256 netFeeUsdc = fee0 - tax0;
+        uint256 netFeeWeth = fee1 - tax1;
+
+        // 2. Process TAX (Convert to ETH -> Deposit to Paymaster)
+        uint256 ethToDeposit = 0;
+
+        // A. Convert Tax USDC to WETH
+        if (tax0 > 0) {
+            try this._attemptSwap(address(USDC), address(WETH), tax0) returns (uint256 wethReceived) {
+                tax1 += wethReceived;
+            } catch {}
+        }
+
+        // B. Unwrap Total Tax WETH -> ETH and Deposit
+        if (tax1 > 0) {
+            IWETH(address(WETH)).withdraw(tax1); // Unwrap
+            ethToDeposit = address(this).balance;
+            if (ethToDeposit > 0) {
+                ENTRY_POINT.depositTo{value: ethToDeposit}(PAYMASTER);
+            }
+        }
+
+        // 3. Process USER YIELD (Convert remaining WETH -> USDC)
+        // We want all user yield in USDC
+        if (netFeeWeth > 0) {
+             try this._attemptSwap(address(WETH), address(USDC), netFeeWeth) returns (uint256 usdcReceived) {
+                netFeeUsdc += usdcReceived;
             } catch {}
         }
         
-        // Distribute Fees (Tax + User Yield)
-        // We DO NOT reinvest these fees into the pool. They are set aside for claiming.
-        uint256 tax = 0;
-        uint256 netFeeUsdc = 0;
-        
-        if (fee0 > 0) {
-            tax = fee0 / 10;
-            USDC.safeTransfer(PAYMASTER, tax);
-            netFeeUsdc = fee0 - tax;
-            
+        // 4. Distribute Yield
+        if (netFeeUsdc > 0) {
             if (sTotalWeight > 0) {
                 sAccRewardPerWeight += (netFeeUsdc * SCALE_FACTOR) / sTotalWeight;
                 sTotalUnclaimedYield += netFeeUsdc;
             }
         }
         
-        emit Rebalanced(sLastPositionId, fee0, netFeeUsdc, tax); // Log the "Yield Event"
+        emit Rebalanced(sLastPositionId, fee0, netFeeUsdc, ethToDeposit); // Updated Event Log
 
         // --- STEP 2: MANAGE PRINCIPAL (LIQUIDITY) ---
         
@@ -332,8 +358,8 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
             uint256 amount0ToMint = (investable0 * 80) / 100;
             
             if (amount0ToMint > 0 || balance1 > 0) {
-                USDC.approve(address(POSITION_MANAGER), amount0ToMint);
-                WETH.approve(address(POSITION_MANAGER), balance1);
+                _safeApprove(USDC, address(POSITION_MANAGER), amount0ToMint);
+                _safeApprove(WETH, address(POSITION_MANAGER), balance1);
 
                 INonfungiblePositionManager.MintParams
                     memory params = INonfungiblePositionManager.MintParams({
@@ -350,28 +376,46 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
                         deadline: block.timestamp
                     });
 
-                (sLastPositionId, , , ) = POSITION_MANAGER.mint(params);
+                try POSITION_MANAGER.mint(params) returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {
+                    sLastPositionId = tokenId;
+                } catch Error(string memory reason) {
+                    revert(string(abi.encodePacked("Mint Failed: ", reason)));
+                } catch {
+                    revert("Mint Failed (Unknown)");
+                }
             }
         }
     }
 
-    // Internal function to attempt WETH → USDC swap
-    // Called via try-catch so failures don't revert rebalance
-    function _attemptSwap(uint256 wethAmount) external returns (uint256) {
+    // Safe Approve Helper (Reset to 0, then set amount)
+    function _safeApprove(IERC20 token, address spender, uint256 amount) internal {
+        // 1. Approve 0 first (Handling USDT-like tokens)
+        (bool success1, ) = address(token).call(abi.encodeWithSelector(IERC20.approve.selector, spender, 0));
+        require(success1, "Approve 0 failed");
+
+        // 2. Approve Amount
+        (bool success2, bytes memory data) = address(token).call(abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
+        require(success2 && (data.length == 0 || abi.decode(data, (bool))), "Approve failed");
+    }
+        
+    
+
+    // Generic Swap Helper
+    function _attemptSwap(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256) {
         require(msg.sender == address(this), "Internal only");
         
         // Approve swap router
-        WETH.approve(address(SWAP_ROUTER), wethAmount);
+        IERC20(tokenIn).approve(address(SWAP_ROUTER), amountIn);
         
         // Execute swap
         ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter
             .ExactInputSingleParams({
-                tokenIn: address(WETH),
-                tokenOut: address(USDC),
+                tokenIn: tokenIn,
+                tokenOut: tokenOut,
                 fee: 3000,
                 recipient: address(this),
-                deadline: block.timestamp + 300,  // 5 minute buffer
-                amountIn: wethAmount,
+                deadline: block.timestamp + 300,
+                amountIn: amountIn,
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0
             });

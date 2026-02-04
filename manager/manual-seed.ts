@@ -4,8 +4,8 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 const RPC_URL = process.env.VITE_INFURA_RPC_URL;
-const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const VAULT_ADDRESS = "0x11Ea6777Ff9cC8bc05c0cd54B646D5052ff18899";
+const BOT_PRIVATE_KEY = process.env.BOT_PRIVATE_KEY;
+const VAULT_ADDRESS = "0x6e09aDfaf01c32B692e959f411fCD4a37DA811F4";
 const WETH_ADDRESS = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14";
 const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
@@ -16,7 +16,7 @@ const ERC20_ABI = [
 
 async function main() {
     const provider = new ethers.JsonRpcProvider(RPC_URL);
-    const wallet = new ethers.Wallet(PRIVATE_KEY!, provider);
+    const wallet = new ethers.Wallet(BOT_PRIVATE_KEY!, provider);
 
     const weth = new ethers.Contract(WETH_ADDRESS, ERC20_ABI, wallet);
     const usdc = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, wallet);

@@ -8,7 +8,7 @@ export const CONTRACTS = {
     chainId: 11155111, // Sepolia
   },
   YieldVault: {
-    address: '0x11Ea6777Ff9cC8bc05c0cd54B646D5052ff18899' as const,
+    address: "0x6e09aDfaf01c32B692e959f411fCD4a37DA811F4" as const, // FIXED Receive Loop Vault
     chainId: 11155111,
   },
   Alchemist: {

@@ -35,8 +35,8 @@ async function main() {
     console.log(`Current WETH: ${ethers.formatEther(wethBalance)}`);
     console.log(`Current USDC: ${ethers.formatUnits(usdcBalance, 6)}\n`);
 
-    // Default: swap 0.1 WETH (you can change this)
-    const amountToSwap = ethers.parseEther("0.1");
+    // Default: swap 0.5 WETH (you can change this)
+    const amountToSwap = ethers.parseEther("0.5");
 
     if (wethBalance < amountToSwap) {
         console.log("❌ ERROR: Insufficient WETH balance!");
