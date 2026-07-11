@@ -1,7 +1,11 @@
+import { fileURLToPath } from "url";
 import { ethers } from "ethers";
 import * as dotenv from "dotenv";
+import * as path from "path";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const RPC_URL = process.env.VITE_INFURA_RPC_URL;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;

@@ -1,11 +1,15 @@
+import { fileURLToPath } from "url";
 import { ethers } from "ethers";
 import * as dotenv from "dotenv";
+import * as path from "path";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const RPC_URL = process.env.VITE_INFURA_RPC_URL;
 const BOT_PRIVATE_KEY = process.env.BOT_PRIVATE_KEY;
-const VAULT_ADDRESS = "0x6e09aDfaf01c32B692e959f411fCD4a37DA811F4";
+const VAULT_ADDRESS = "0xE2352045708FbB8D06458bFC657149c1C8E04CA1";
 const WETH_ADDRESS = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14";
 const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
@@ -41,8 +45,8 @@ async function main() {
     console.log(`   WETH: ${ethers.formatEther(vaultWeth)}`);
     console.log(`   USDC: ${ethers.formatUnits(vaultUsdc, 6)}\n`);
 
-    const seedWeth = ethers.parseEther("0.05");
-    const seedUsdc = 10000000000n; // 10000 USDC
+    const seedWeth = ethers.parseEther("0.04");
+    const seedUsdc = 1000000000n; // 1000 USDC
 
     if (botWeth < seedWeth) {
         console.log("❌ ERROR: Bot doesn't have enough WETH!");
@@ -52,7 +56,7 @@ async function main() {
 
     if (botUsdc < seedUsdc) {
         console.log("❌ ERROR: Bot doesn't have enough USDC!");
-        console.log(`   Need: 10000 USDC, Have: ${ethers.formatUnits(botUsdc, 6)}`);
+        console.log(`   Need: 1000 USDC, Have: ${ethers.formatUnits(botUsdc, 6)}`);
         return;
     }
 
@@ -64,7 +68,7 @@ async function main() {
     console.log("   ✅ Confirmed\n");
 
     // Transfer USDC
-    console.log("💸 Transferring 10000 USDC to Vault...");
+    console.log("💸 Transferring 1000 USDC to Vault...");
     const tx2 = await usdc.transfer(VAULT_ADDRESS, seedUsdc);
     console.log(`   Tx: ${tx2.hash}`);
     await tx2.wait();

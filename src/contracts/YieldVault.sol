@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.30;
+pragma solidity ^0.8.35;
 
 import {ISwapRouter, INonfungiblePositionManager, IUniswapV3Pool} from "./IUniswap.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
@@ -9,6 +9,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import {ElementNFT} from "./ElementNFT.sol";
+import {Nox, eint256, externalEint256} from "@iexec-nox/nox-protocol-contracts/contracts/sdk/Nox.sol";
 
 // SafeERC20 Wrapper to avoid Import Issues
 library SafeTransferLib {
@@ -69,6 +70,11 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
     uint256 public sAccRewardPerWeight;
     uint256 public sLastPositionId;
     uint256 public sTotalUnclaimedYield;
+
+    // Nox confidential variables
+    eint256 public sEncryptedTickLower;
+    eint256 public sEncryptedTickUpper;
+    bool public sPendingRebalance;
     // WETH Interface extended to include deposit
     IERC20 public immutable WETH;
     IERC20 public immutable USDC;
@@ -208,8 +214,56 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         return rounded;
     }
 
-    // Automated Liquidity Manager Rebalancing
-    function rebalance() external nonReentrant onlyOwner {
+    // Automated Liquidity Manager Rebalancing (Request Step)
+    function rebalance(
+        externalEint256 encryptedTickLower,
+        bytes calldata proofLower,
+        externalEint256 encryptedTickUpper,
+        bytes calldata proofUpper
+    ) external onlyOwner nonReentrant {
+        sEncryptedTickLower = Nox.fromExternal(encryptedTickLower, proofLower);
+        sEncryptedTickUpper = Nox.fromExternal(encryptedTickUpper, proofUpper);
+
+        Nox.allowThis(sEncryptedTickLower);
+        Nox.allowThis(sEncryptedTickUpper);
+
+        Nox.allowPublicDecryption(sEncryptedTickLower);
+        Nox.allowPublicDecryption(sEncryptedTickUpper);
+
+        sPendingRebalance = true;
+    }
+
+    // Automated Liquidity Manager Rebalancing (Execution Step)
+    function executeRebalance(
+        eint256 encryptedTickLower,
+        bytes calldata proofLower,
+        eint256 encryptedTickUpper,
+        bytes calldata proofUpper
+    ) external nonReentrant {
+        require(sPendingRebalance, "No pending rebalance");
+        require(
+            eint256.unwrap(encryptedTickLower) == eint256.unwrap(sEncryptedTickLower) &&
+            eint256.unwrap(encryptedTickUpper) == eint256.unwrap(sEncryptedTickUpper),
+            "Invalid handles"
+        );
+
+        int24 tickLower = int24(Nox.publicDecrypt(sEncryptedTickLower, proofLower));
+        int24 tickUpper = int24(Nox.publicDecrypt(sEncryptedTickUpper, proofUpper));
+
+        sPendingRebalance = false;
+        _executeRebalance(tickLower, tickUpper);
+    }
+
+    // Direct rebalance bypass for testing and owner emergency
+    function executeRebalanceDirect(
+        int24 tickLower,
+        int24 tickUpper
+    ) external onlyOwner nonReentrant {
+        _executeRebalance(tickLower, tickUpper);
+    }
+
+    // Internal implementation containing the original rebalancing logic
+    function _executeRebalance(int24 tickLower, int24 tickUpper) internal {
         // --- STEP 1: HARVEST & PROCESS FEES ---
         // We collect fees BEFORE touching liquidity. This gives us pure trading fees.
         uint256 fee0 = 0;
@@ -230,7 +284,6 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
             );
         }
         
-        // Calculate collected fees
         // Calculate collected fees
         fee0 = USDC.balanceOf(address(this)) - bal0;
         fee1 = WETH.balanceOf(address(this)) - bal1;
@@ -263,7 +316,6 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         }
 
         // 3. Process USER YIELD (Convert remaining WETH -> USDC)
-        // We want all user yield in USDC
         if (netFeeWeth > 0) {
              try this._attemptSwap(address(WETH), address(USDC), netFeeWeth) returns (uint256 usdcReceived) {
                 netFeeUsdc += usdcReceived;
@@ -278,16 +330,14 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
             }
         }
         
-        emit Rebalanced(sLastPositionId, fee0, netFeeUsdc, ethToDeposit); // Updated Event Log
+        emit Rebalanced(sLastPositionId, fee0, netFeeUsdc, ethToDeposit);
 
         // --- STEP 2: MANAGE PRINCIPAL (LIQUIDITY) ---
         
-        // Get current price
-        (, int24 tick, , , , , ) = POOL.slot0();
+        // Sanitize tick inputs to match the pool tick spacing
         int24 tickSpacing = POOL.tickSpacing();
-        int24 usableTick = _getNearestUsableTick(tick, tickSpacing);
-        int24 tickLower = usableTick - ((500 / tickSpacing) * tickSpacing);
-        int24 tickUpper = usableTick + ((500 / tickSpacing) * tickSpacing);
+        int24 usableTickLower = _getNearestUsableTick(tickLower, tickSpacing);
+        int24 usableTickUpper = _getNearestUsableTick(tickUpper, tickSpacing);
 
         bool shouldMoveLiquidity = false;
         
@@ -298,29 +348,33 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
             if (posLiquidity == 0) {
                 shouldMoveLiquidity = true;
             } 
-            else if (tick < posTickLower || tick > posTickUpper) {
-                shouldMoveLiquidity = true;
-                
-                // Withdraw PRINCIPAL
-                POSITION_MANAGER.decreaseLiquidity(
-                    INonfungiblePositionManager.DecreaseLiquidityParams({
-                        tokenId: sLastPositionId,
-                        liquidity: posLiquidity,
-                        amount0Min: 0,
-                        amount1Min: 0,
-                        deadline: block.timestamp
-                    })
-                );
-                
-                // Collect PRINCIPAL (now sitting in tokensOwed)
-                POSITION_MANAGER.collect(
-                    INonfungiblePositionManager.CollectParams({
-                        tokenId: sLastPositionId,
-                        recipient: address(this),
-                        amount0Max: type(uint128).max,
-                        amount1Max: type(uint128).max
-                    })
-                );
+            else {
+                // Get current pool tick
+                (, int24 currentTick, , , , , ) = POOL.slot0();
+                if (currentTick < posTickLower || currentTick > posTickUpper) {
+                    shouldMoveLiquidity = true;
+                    
+                    // Withdraw PRINCIPAL
+                    POSITION_MANAGER.decreaseLiquidity(
+                        INonfungiblePositionManager.DecreaseLiquidityParams({
+                            tokenId: sLastPositionId,
+                            liquidity: posLiquidity,
+                            amount0Min: 0,
+                            amount1Min: 0,
+                            deadline: block.timestamp
+                        })
+                    );
+                    
+                    // Collect PRINCIPAL
+                    POSITION_MANAGER.collect(
+                        INonfungiblePositionManager.CollectParams({
+                            tokenId: sLastPositionId,
+                            recipient: address(this),
+                            amount0Max: type(uint128).max,
+                            amount1Max: type(uint128).max
+                        })
+                    );
+                }
             }
             
             if (shouldMoveLiquidity) {
@@ -330,31 +384,11 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         }
 
         // --- STEP 3: RE-INVEST PRINCIPAL ---
-        // We only invest funds if we don't have a position (first run or just burned).
-        // AND we must ensure we don't accidentally invest the "User Yield" passing through.
-        // Actually, sAccRewardPerWeight tracks the yield liability. The physical tokens exist in the contract.
-        // If we invest ALL balance, we invest the User Yield too, leaving the vault "insolvent" on claims until we close the position?
-        // YES. This is a common pattern: "Auto-Compounding" implicitly, but we tracked it as 'claimable'.
-        // If users try to claim, we might not have liquid USDC if we put it all in the pool.
-        
-        // Solution: Reserve the `netFeeUsdc` (and previous unclaimed rewards) from the investment amount.
-        // But tracking exact "Unclaimed Rewards Total" globally is hard without a variable.
-        // Approximation: We keep a "Cash Buffer" (e.g. 5-10% or just the `netFeeUsdc` we just earned) liquid.
-        // Or simpler: We just reinvest. If a user claims and we lack liquidity, we assume the next rebalance/deposit covers it?
-        // No, `claimYield` fails if `balance < reward`.
-        // Better: We KEEP `netFeeUsdc` in the contract balance (don't put it in `amount0Desired`).
-        
         if (sLastPositionId == 0) {
             uint256 balance0 = USDC.balanceOf(address(this));
             uint256 balance1 = WETH.balanceOf(address(this));
             
-            // Subtract the yield we just allocated to users from the "Available to Invest"
-            // AND any previously unclaimed yield.
             uint256 investable0 = balance0 > sTotalUnclaimedYield ? balance0 - sTotalUnclaimedYield : 0;
-            
-            // Also keep a small buffer for gas/rounding errors? 
-            // Let's stick to the 80% rule for USDC to be safe and liquid.
-            // 80% of Investable.
             uint256 amount0ToMint = (investable0 * 80) / 100;
             
             if (amount0ToMint > 0 || balance1 > 0) {
@@ -366,8 +400,8 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
                         token0: address(USDC),
                         token1: address(WETH),
                         fee: 3000,
-                        tickLower: tickLower,
-                        tickUpper: tickUpper,
+                        tickLower: usableTickLower,
+                        tickUpper: usableTickUpper,
                         amount0Desired: amount0ToMint,
                         amount1Desired: balance1,
                         amount0Min: 0,

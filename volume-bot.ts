@@ -1,12 +1,13 @@
 import { ethers } from "ethers";
 import * as dotenv from "dotenv";
+import { createEthersHandleClient } from "@iexec-nox/handle";
 
 dotenv.config();
 
 // --- Configuration ---
 const RPC_URL = process.env.VITE_INFURA_RPC_URL;
 const BOT_PRIVATE_KEY = process.env.BOT_PRIVATE_KEY;
-const VAULT_ADDRESS = "0x6e09aDfaf01c32B692e959f411fCD4a37DA811F4";  // Receive Loop Fix Vault
+const VAULT_ADDRESS = "0xE2352045708FbB8D06458bFC657149c1C8E04CA1";  // Newly deployed Confidential YieldVault on Sepolia
 const SWAP_ROUTER_ADDRESS = "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E";
 const WETH_ADDRESS = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14"; // Token1 (Lexicographically larger than USDC)
 const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238"; // Token0
@@ -16,7 +17,14 @@ const MIN_SQRT_RATIO = 4295128739n + 1n;
 const MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342n - 1n;
 
 // --- ABIs ---
-const VAULT_ABI = ["function rebalance() external"];
+const VAULT_ABI = [
+    "function rebalance(bytes32 encryptedTickLower, bytes proofLower, bytes32 encryptedTickUpper, bytes proofUpper) external",
+    "function executeRebalance(bytes32 encryptedTickLower, bytes proofLower, bytes32 encryptedTickUpper, bytes proofUpper) external",
+    "function sPendingRebalance() external view returns (bool)",
+    "function sEncryptedTickLower() external view returns (bytes32)",
+    "function sEncryptedTickUpper() external view returns (bytes32)",
+    "function POOL() external view returns (address)"
+];
 const ERC20_ABI = [
     "function approve(address spender, uint256 amount) external returns (bool)",
     "function balanceOf(address account) external view returns (uint256)",
@@ -30,22 +38,30 @@ const ROUTER_ABI = [
 ];
 
 async function main() {
-    if (!BOT_PRIVATE_KEY || !RPC_URL) throw new Error("Missing env vars");
+    if (!BOT_PRIVATE_KEY || !RPC_URL) throw new Error("Missing env vars: BOT_PRIVATE_KEY and VITE_INFURA_RPC_URL required");
 
     const provider = new ethers.JsonRpcProvider(RPC_URL);
+
+    // Single bot wallet — owns the vault and executes all operations
     const wallet = new ethers.Wallet(BOT_PRIVATE_KEY, provider);
 
     console.log(`\n🤖 Bot Active: ${wallet.address}`);
 
-    // Fix for "in-flight limit reached":
-    // Check pending nonce and explicitly set it if needed, or just warn the user.
     const nonce = await provider.getTransactionCount(wallet.address, "latest");
     console.log(`Current Nonce: ${nonce}`);
 
+    // Vault connected to bot wallet (owner) for all calls
     const vault = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, wallet);
     const router = new ethers.Contract(SWAP_ROUTER_ADDRESS, ROUTER_ABI, wallet);
     const weth = new ethers.Contract(WETH_ADDRESS, ERC20_ABI, wallet);
     const usdc = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, wallet);
+
+    // Initialize Pool contract by fetching address from vault
+    const poolAddress = await vault.POOL();
+    const pool = new ethers.Contract(poolAddress, [
+        "function slot0() external view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationNext, uint16 observationCardinality, uint8 feeProtocol, bool unlocked)",
+        "function tickSpacing() external view returns (int24)"
+    ], provider);
 
     // --- Initial Checks ---
     let ethBalance = await provider.getBalance(wallet.address);
@@ -56,13 +72,13 @@ async function main() {
     console.log(`WETH: ${ethers.formatEther(wethBalance)}`);
 
     // 1. Wrap ETH if needed
-    if (wethBalance < ethers.parseEther("0.01") && ethBalance > ethers.parseEther("0.06")) {
+    if (wethBalance < ethers.parseEther("0.05") && ethBalance > ethers.parseEther("0.06")) {
         try {
-            console.log("\n⛽ Low WETH. Wrapping 0.05 ETH for fuel...");
-            const tx = await weth.deposit({ value: ethers.parseEther("0.05") });
+            console.log("\n⛽ Low WETH. Wrapping 0.15 ETH for fuel...");
+            const tx = await weth.deposit({ value: ethers.parseEther("0.15") });
             console.log(`Tx sent: ${tx.hash}`);
             await tx.wait();
-            console.log("✅ Wrapped 0.05 ETH");
+            console.log("✅ Wrapped 0.15 ETH");
             wethBalance = await weth.balanceOf(wallet.address);
         } catch (e) {
             console.error("⚠️ Failed to wrap ETH:", e);
@@ -100,18 +116,26 @@ async function main() {
         try {
             console.log(`\n--- ⚗️ Cycle #${cycle} ---`);
 
-            // Check balances
+            // Check balances and auto-wrap inside loop if needed
+            ethBalance = await provider.getBalance(wallet.address);
             wethBalance = await weth.balanceOf(wallet.address);
-            if (wethBalance < ethers.parseEther("0.001")) {
-                console.warn("⚠️ WETH critically low. Skipping.");
-                // Should wrap logic here but keeping it simple for now
+            if (wethBalance < ethers.parseEther("0.02") && ethBalance > ethers.parseEther("0.05")) {
+                console.log("⛽ Auto-wrapping 0.05 ETH inside loop for fuel...");
+                await (await weth.deposit({ value: ethers.parseEther("0.05") })).wait();
+                wethBalance = await weth.balanceOf(wallet.address);
+            }
+
+            if (wethBalance < ethers.parseEther("0.005")) {
+                console.warn("⚠️ WETH and ETH critically low. Skipping cycle.");
+                await new Promise(r => setTimeout(r, 10000));
+                continue;
             }
 
             // STEP A: Swap WETH -> USDC
             // WETH (Token1) -> USDC (Token0). Price (Token1/Token0) goes UP.
             // Limit must be > current. Use MAX.
-            const amountIn = ethers.parseEther("0.1");
-            console.log(`Creating Volatility: 0.1 WETH -> USDC`);
+            const amountIn = ethers.parseEther("0.01");
+            console.log(`Creating Volatility: 0.01 WETH -> USDC`);
 
             const swapParams = {
                 tokenIn: WETH_ADDRESS,
@@ -156,19 +180,79 @@ async function main() {
 
             // STEP C: Rebalance (The Ritual)
             if (cycle % 5 === 0) {
-                console.log(`🔥 TIME FOR THE RITUAL (Rebalance)`);
+                console.log(`\n🔥 TIME FOR THE RITUAL (Rebalance)`);
                 try {
-                    // Note: Vault was manually seeded with 0.02 WETH + 10 USDC
-                    // Rebalance maintains liquidity by minting new positions
-
-                    const txRebalance = await vault.rebalance({ gasLimit: 2000000 }); // Bump gas
-                    process.stdout.write(`Ritual Tx: ${txRebalance.hash} ...`);
+                    // 1. Get current pool tick and spacing
+                    const slot0 = await pool.slot0();
+                    const tick = Number(slot0[1]);
+                    const tickSpacing = Number(await pool.tickSpacing());
+                    
+                    // Nearest usable tick calculation
+                    let rounded = Math.floor(tick / tickSpacing) * tickSpacing;
+                    if (tick < 0 && (tick % tickSpacing !== 0)) {
+                        rounded -= tickSpacing;
+                    }
+                    
+                    const tickLower = rounded - Math.floor(500 / tickSpacing) * tickSpacing;
+                    const tickUpper = rounded + Math.floor(500 / tickSpacing) * tickSpacing;
+                    
+                    console.log(`Calculated ticks: lower=${tickLower}, upper=${tickUpper}`);
+                    
+                    // 2. Initialize Nox Handle Client
+                    console.log("🔒 Initializing Nox Handle Client...");
+                    const handleClient = await createEthersHandleClient(wallet);
+                    
+                    // 3. Encrypt inputs
+                    console.log("🔒 Encrypting target ticks...");
+                    const { handle: handleLower, handleProof: proofLower } = await handleClient.encryptInput(
+                        BigInt(tickLower),
+                        "int256",
+                        VAULT_ADDRESS
+                    );
+                    const { handle: handleUpper, handleProof: proofUpper } = await handleClient.encryptInput(
+                        BigInt(tickUpper),
+                        "int256",
+                        VAULT_ADDRESS
+                    );
+                    
+                    // 4. Request rebalance on-chain
+                    console.log(`🔒 Requesting rebalance on-chain...`);
+                    const txRebalance = await vault.rebalance(
+                        handleLower,
+                        proofLower,
+                        handleUpper,
+                        proofUpper,
+                        { gasLimit: 2000000 }
+                    );
+                    process.stdout.write(`Request Tx: ${txRebalance.hash} ... `);
                     await txRebalance.wait();
-                    console.log("✅ COMPLETE");
+                    console.log("✅ REQUEST CONFIRMED");
+                    
+                    console.log("⏳ Waiting 10s for block confirmation and off-chain Gateway indexing...");
+                    await new Promise(r => setTimeout(r, 10000));
+                    
+                    // 5. Fetch public decryption proofs
+                    console.log("🔓 Fetching public decryption proofs from Handle Gateway...");
+                    const { decryptionProof: decProofLower } = await handleClient.publicDecrypt(handleLower);
+                    const { decryptionProof: decProofUpper } = await handleClient.publicDecrypt(handleUpper);
+                    
+                    // 6. Execute rebalance on-chain
+                    console.log(`🔓 Executing rebalance on-chain...`);
+                    const txExecute = await vault.executeRebalance(
+                        handleLower,
+                        decProofLower,
+                        handleUpper,
+                        decProofUpper,
+                        { gasLimit: 2000000 }
+                    );
+                    process.stdout.write(`Execute Tx: ${txExecute.hash} ... `);
+                    await txExecute.wait();
+                    console.log("✅ EXECUTION COMPLETE");
+                    
                     console.log("⏳ Waiting 5s for RPC propagation...");
                     await new Promise(r => setTimeout(r, 5000));
                 } catch (rebalanceError) {
-                    console.error("\n❌ Ritual Failed (Vault locked or OOG):", rebalanceError);
+                    console.error("\n❌ Ritual Failed:", rebalanceError);
                 }
             }
 

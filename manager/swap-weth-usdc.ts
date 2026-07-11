@@ -1,7 +1,11 @@
+import { fileURLToPath } from "url";
 import { ethers } from "ethers";
 import * as dotenv from "dotenv";
+import * as path from "path";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const RPC_URL = process.env.VITE_INFURA_RPC_URL;
 const BOT_PRIVATE_KEY = process.env.BOT_PRIVATE_KEY;
@@ -35,8 +39,8 @@ async function main() {
     console.log(`Current WETH: ${ethers.formatEther(wethBalance)}`);
     console.log(`Current USDC: ${ethers.formatUnits(usdcBalance, 6)}\n`);
 
-    // Default: swap 0.5 WETH (you can change this)
-    const amountToSwap = ethers.parseEther("0.5");
+    // Default: swap 0.15 WETH → plenty of USDC to seed the vault
+    const amountToSwap = ethers.parseEther("0.15");
 
     if (wethBalance < amountToSwap) {
         console.log("❌ ERROR: Insufficient WETH balance!");

@@ -1,22 +1,22 @@
 // Smart Contract Configuration - Sepolia Testnet
 
-export const PAYMASTER_ADDRESS = "0x353A1d7795bAdA4727179c09216b0e7DEE8B83D3";
+export const PAYMASTER_ADDRESS = "0x3391e77c91328CaD4687BB6e64443f1a57f0eF25";
 
 export const CONTRACTS = {
   ElementNFT: {
-    address: '0x2BFbf65eFEbEae93cbBEb791ed93fF8DEb4E02b9' as const,
+    address: '0x39e29D973ff5FBd9d1b39705846bEE7e8F7b3547' as const,
     chainId: 11155111, // Sepolia
   },
   YieldVault: {
-    address: "0x6e09aDfaf01c32B692e959f411fCD4a37DA811F4" as const, // FIXED Receive Loop Vault
+    address: "0xE2352045708FbB8D06458bFC657149c1C8E04CA1" as const, // Newly deployed Confidential YieldVault
     chainId: 11155111,
   },
   Alchemist: {
-    address: '0x8abC5a1693dc45106E47e1Ec13a9d7FB150E94F0' as const,
+    address: '0xADDdF24a211e30e9aa469D5098E8176273FEd5bD' as const,
     chainId: 11155111,
   },
   Treasury: {
-    address: '0xf4EbEB758ebb09631B2bA5d9Cb413F8f0f7d9568' as const,
+    address: '0x21a8b1FDFE939C6614da1FAc8ca3976688907197' as const,
     chainId: 11155111,
   },
   Pool: { // WETH/USDC 0.3%
@@ -96,6 +96,6 @@ export const SEPOLIA_CHAIN = {
 
 
 // Deployment Block for Analytics (YieldVault)
-export const DEPLOYMENT_BLOCK = 10000000n;
+export const DEPLOYMENT_BLOCK = 11251300n;
 
 
