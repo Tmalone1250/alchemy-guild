@@ -38,13 +38,13 @@ graph TD
     DAO -->|3. Push Encrypted Vote Handle| Enclave[Intel TDX Enclave / TEE Runner]
     
     subgraph "Active Voting Window (3 Days)"
-        DAO -.-|Public Mempool View| Secret[Encrypted Tally: N Handles Recorded\nPlaintext Split: HIDDEN 🔒]
+        DAO -. Public Mempool View .- Secret[Encrypted Tally: N Handles Recorded\nPlaintext Split: HIDDEN 🔒]
     end
     
     subgraph "Proposal Resolution & Delegation"
         Enclave -->|4. Decrypt inside Hardware TEE| Result[Compute totalFor vs totalAgainst]
         Result -->|5. Verify & Execute| DAO
-        User -.->|Grant O(1) Viewing Access| Leno[Leno AI Enclave v2 Agent]
+        User -. Grant O(1) Viewing Access .-> Leno[Leno AI Enclave v2 Agent]
     end
 ```
 
