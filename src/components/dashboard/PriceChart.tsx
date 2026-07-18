@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createChart, UTCTimestamp } from 'lightweight-charts';
+import { createChart, AreaSeries, UTCTimestamp } from 'lightweight-charts';
 import { createPublicClient, http, fallback } from 'viem';
 import { arbitrumSepolia } from 'viem/chains';
 import { TrendingUp, Activity } from 'lucide-react';
@@ -68,7 +68,7 @@ export default function PriceChart() {
     });
 
     // 2. Add Area Series with gold accents
-    const areaSeries = chart.addAreaSeries({
+    const areaSeries = chart.addSeries(AreaSeries, {
       lineColor: '#d4af37',
       topColor: 'rgba(212, 175, 55, 0.3)',
       bottomColor: 'rgba(212, 175, 55, 0.0)',
