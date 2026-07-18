@@ -60,7 +60,7 @@ export function ActivityTable() {
           Recent Activity
         </h3>
         <a
-          href={`https://sepolia.basescan.org/address/${CONTRACTS.ElementNFT.address}`}
+          href={`https://sepolia.arbiscan.io/address/${CONTRACTS.ElementNFT.address}#internaltx`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
@@ -109,7 +109,7 @@ export function ActivityTable() {
                         )}
                       </div>
                       <a
-                        href={`https://sepolia.basescan.org/tx/${event.txHash}`}
+                        href={`https://sepolia.arbiscan.io/tx/${event.txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-muted-foreground truncate font-mono hover:text-primary transition-colors flex items-center gap-1 w-fit"
