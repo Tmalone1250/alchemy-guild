@@ -63,7 +63,7 @@ export function SidebarContent({ onNavClick }: SidebarContentProps) {
                     </div>
                     <div>
                         <h1 className="text-lg font-semibold text-foreground">Alchemy Guild</h1>
-                        <p className="text-xs text-muted-foreground">Sepolia Testnet</p>
+                        <p className="text-xs text-muted-foreground">Arbitrum Sepolia</p>
                     </div>
                 </div>
             </div>
