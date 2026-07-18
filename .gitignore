@@ -28,8 +28,6 @@ cache
 
 .env
 
-src/abi
-
 broadcast
 scripts
 deployment
