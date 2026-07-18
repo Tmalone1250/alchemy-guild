@@ -6,7 +6,7 @@ import { entryPoint07Address } from 'viem/account-abstraction';
 import { pimlicoClient } from '../config/pimlico';
 import { PAYMASTER_ADDRESS } from '../config/contracts';
 import { http } from 'viem';
-import { sepolia } from 'viem/chains';
+import { arbitrumSepolia } from 'viem/chains';
 
 export function useSmartAccount() {
     const { address, isConnected } = useAccount();
@@ -30,15 +30,15 @@ export function useSmartAccount() {
                         address: entryPoint07Address,
                         version: "0.7"
                     }
-                });
+                } as any);
                 
                 setSmartAccountAddress(simpleAccount.address);
 
                 // 2. Create the Smart Account Client (Bundler + Paymaster)
                 const smartAccountClient = createSmartAccountClient({
                     account: simpleAccount,
-                    chain: sepolia, // Use standard chain definition
-                    bundlerTransport: http(`https://api.pimlico.io/v2/sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
+                    chain: arbitrumSepolia, // Use standard chain definition
+                    bundlerTransport: http(`https://api.pimlico.io/v2/arbitrum-sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
                     paymaster: {
                         getPaymasterStubData: async () => {
                              return {

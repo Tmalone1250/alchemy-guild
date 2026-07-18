@@ -14,6 +14,7 @@ import {
     ChevronRight,
     LogOut,
     Book, // Added for Docs link
+    Landmark, // Added for DAO / Council link
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ConnectButton } from '@/components/ui/connect-button';
@@ -23,6 +24,7 @@ const navItems = [
     { path: '/inventory', label: 'Inventory', icon: Grid3X3 },
     { path: '/lab', label: 'The Lab', icon: FlaskConical },
     { path: '/vault', label: 'The Vault', icon: Vault },
+    { path: '/dao', label: 'The Council', icon: Landmark },
     { path: '/analytics', label: 'Analytics', icon: BarChart3 },
     { path: '/docs', label: 'Docs', icon: Book },
 ];

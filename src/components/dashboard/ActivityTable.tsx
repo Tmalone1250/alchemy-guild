@@ -60,7 +60,7 @@ export function ActivityTable() {
           Recent Activity
         </h3>
         <a
-          href={CONTRACTS.ElementNFT.chainId === 11155111 ? "https://sepolia.etherscan.io/address/" + CONTRACTS.ElementNFT.address : "#"}
+          href={`https://sepolia.basescan.org/address/${CONTRACTS.ElementNFT.address}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
@@ -109,7 +109,7 @@ export function ActivityTable() {
                         )}
                       </div>
                       <a
-                        href={`${CONTRACTS.ElementNFT.chainId === 11155111 ? 'https://sepolia.etherscan.io' : 'https://etherscan.io'}/tx/${event.txHash}`}
+                        href={`https://sepolia.basescan.org/tx/${event.txHash}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-muted-foreground truncate font-mono hover:text-primary transition-colors flex items-center gap-1 w-fit"

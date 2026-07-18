@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { ElementType, ELEMENTS } from '@/config/contracts';
 import { toast } from 'sonner';
 import { useElementNFT } from '@/hooks/useContracts';
+import { useAccount } from 'wagmi';
 
 const elementIcons = {
   Earth: Mountain,
@@ -28,6 +29,7 @@ const elementStyles: Record<string, string> = {
 export function MintWidget() {
   const [selectedElement, setSelectedElement] = useState<ElementType | null>(null);
   const { publicMint, isPending, isConfirming, isSuccess, error } = useElementNFT();
+  const { address } = useAccount();
 
   const handleMint = async () => {
     if (!selectedElement) return;
@@ -36,30 +38,37 @@ export function MintWidget() {
     if (elementIndex === -1) return;
 
     try {
-      toast.loading('Confirm transaction in your wallet...', { id: 'mint' });
-      await publicMint(elementIndex);
-      toast.loading('Minting your Element NFT...', { id: 'mint' });
+      console.log('MintWidget: Initiating minting process for element:', selectedElement, 'index:', elementIndex);
+      console.log('MintWidget: Connected address:', address);
+      const tx = await publicMint(elementIndex);
+      console.log('MintWidget: Mint transaction submitted/completed:', tx);
     } catch (err: any) {
-      if (err.message?.includes('User rejected')) {
-        toast.error('Transaction rejected', { id: 'mint' });
+      console.error('MintWidget: Error caught inside handleMint:', err);
+      if (err?.code === 4001 || err?.message?.includes('User rejected')) {
+        toast.error('Transaction rejected by user', { id: 'mint' });
       } else {
-        toast.error('Failed to mint NFT', { id: 'mint' });
+        const errorMsg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+        toast.error(`Failed to mint NFT: ${errorMsg.slice(0, 80)}`, { id: 'mint' });
       }
     }
   };
 
   useEffect(() => {
     if (isSuccess) {
-      toast.success(`Successfully minted ${selectedElement} Element!`, { id: 'mint' });
+      console.log('MintWidget: isSuccess triggered. Successfully minted:', selectedElement);
+      toast.success(`Successfully minted ${selectedElement} Element! (+10 GUILD Subsidy Granted)`, { id: 'mint' });
       setSelectedElement(null);
     }
   }, [isSuccess, selectedElement]);
 
   useEffect(() => {
     if (error) {
-      toast.error('Transaction failed', { id: 'mint' });
+      console.error('MintWidget: useElementNFT hook returned error state:', error);
+      const errorMsg = error.message || (typeof error === 'object' ? JSON.stringify(error) : String(error));
+      toast.error(`Transaction failed: ${errorMsg.slice(0, 80)}`, { id: 'mint' });
     }
   }, [error]);
+
 
   return (
     <motion.div
@@ -67,13 +76,23 @@ export function MintWidget() {
       animate={{ opacity: 1, y: 0 }}
       className="glass-panel p-6"
     >
-      <div className="flex items-center gap-3 mb-6">
+      <div className="flex items-center gap-3 mb-4">
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
           <Sparkles className="w-5 h-5 text-primary" />
         </div>
         <div>
           <h3 className="text-lg font-semibold text-foreground">Mint New Element</h3>
           <p className="text-sm text-muted-foreground">Select an element to mint</p>
+        </div>
+      </div>
+
+      {/* Governance Subsidy Pill */}
+      <div className="mb-5 p-3 rounded-xl border border-primary/30 bg-primary/5 gold-glow flex flex-col gap-2">
+        <div className="flex items-center justify-center">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/20 text-primary border border-primary/40 animate-pulse">
+            <Sparkles className="w-3.5 h-3.5" />
+            Includes +10 GUILD Governance Subsidy
+          </span>
         </div>
       </div>
 

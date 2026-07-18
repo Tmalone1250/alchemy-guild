@@ -1,6 +1,6 @@
 const CONFIG = {
-  // Sepolia ElementNFT Address
-  ADDRESS: "0x2BFbf65eFEbEae93cbBEb791ed93fF8DEb4E02b9",
+  // Arbitrum Sepolia ElementNFT Address
+  ADDRESS: "0x60c28DcF0c32bd305b49a3dCcABC1A4a10BdcBc3",
   
   // Minimal ABI for Tier Verification
   ABI: [

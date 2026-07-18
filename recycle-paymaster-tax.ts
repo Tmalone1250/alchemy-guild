@@ -5,8 +5,8 @@ import { CONTRACTS, PAYMASTER_ADDRESS } from "./src/config/contracts";
 
 dotenv.config();
 
-const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const RPC_URL = process.env.VITE_INFURA_RPC_URL || "https://ethereum-sepolia-rpc.publicnode.com";
+const PRIVATE_KEY = process.env.BOT_PRIVATE_KEY || process.env.PRIVATE_KEY;
+const RPC_URL = process.env.ARBITRUM_SEPOLIA_RPC_URL || process.env.VITE_INFURA_RPC_URL || "https://sepolia-rollup.arbitrum.io/rpc";
 
 if (!PRIVATE_KEY) {
     console.error("Missing PRIVATE_KEY in .env");
@@ -39,7 +39,7 @@ const ROUTER_ABI = [
     "function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) external payable returns (uint256 amountOut)"
 ];
 
-const ROUTER_ADDRESS = "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E"; // Uniswap V3 SwapRouter02 (Sepolia)
+const ROUTER_ADDRESS = "0x101F443B4d1b059569D643917553c771E1b9663E"; // Uniswap V3 SwapRouter02 (Arbitrum Sepolia)
 
 async function recycle() {
     const timestamp = new Date().toISOString();

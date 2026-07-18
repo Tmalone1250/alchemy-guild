@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "fund-user": "npx tsx scripts/fund-user-guild.ts",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -16,6 +17,7 @@
     "@account-abstraction/contracts": "^0.8.0",
     "@hookform/resolvers": "^3.10.0",
     "@iexec-nox/handle": "^0.1.0-beta.13",
+    "@iexec-nox/nox-protocol-contracts": "file:iexec-nox-nox-protocol-contracts-0.2.4.tgz",
     "@openzeppelin/contracts": "^5.4.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -55,6 +57,7 @@
     "date-fns": "^3.6.0",
     "dotenv": "^17.2.3",
     "embla-carousel-react": "^8.6.0",
+    "encrypted-types": "^0.0.4",
     "ethers": "^6.16.0",
     "framer-motion": "^12.26.2",
     "input-otp": "^1.4.2",

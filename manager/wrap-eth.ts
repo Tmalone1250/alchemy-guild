@@ -7,9 +7,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-const RPC_URL = process.env.VITE_INFURA_RPC_URL;
-const BOT_PRIVATE_KEY = process.env.BOT_PRIVATE_KEY;
-const WETH_ADDRESS = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14";
+const RPC_URL = process.env.ARBITRUM_SEPOLIA_RPC_URL || process.env.VITE_INFURA_RPC_URL || "https://sepolia-rollup.arbitrum.io/rpc";
+const BOT_PRIVATE_KEY = process.env.BOT_PRIVATE_KEY || process.env.PRIVATE_KEY;
+const WETH_ADDRESS = "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73"; // Arbitrum Sepolia WETH address
 
 const WETH_ABI = [
     "function deposit() external payable",
@@ -29,8 +29,8 @@ async function main() {
     console.log(`Current ETH:  ${ethers.formatEther(ethBalance)}`);
     console.log(`Current WETH: ${ethers.formatEther(wethBalance)}\n`);
 
-    // Default: wrap 1 ETH (you can change this)
-    const amountToWrap = ethers.parseEther("1.0");
+    // Default: wrap 0.5 ETH (you can change this)
+    const amountToWrap = ethers.parseEther("0.5");
 
     if (ethBalance < amountToWrap) {
         console.log("❌ ERROR: Insufficient ETH balance!");

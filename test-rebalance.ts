@@ -3,9 +3,9 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const RPC_URL = process.env.VITE_INFURA_RPC_URL;
-const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const VAULT_ADDRESS = "0x974EE0295be5524c98D2edE3844bA320911c99eE";
+const RPC_URL = process.env.ARBITRUM_SEPOLIA_RPC_URL || process.env.VITE_INFURA_RPC_URL || "https://sepolia-rollup.arbitrum.io/rpc";
+const PRIVATE_KEY = process.env.BOT_PRIVATE_KEY || process.env.PRIVATE_KEY;
+const VAULT_ADDRESS = process.env.VAULT_ADDRESS || "0x2Ed51bD2CD7148197C8aBbF53D171e1c8bb41CdC";
 
 const VAULT_ABI = ["function rebalance() external"];
 

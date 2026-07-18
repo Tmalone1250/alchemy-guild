@@ -2,7 +2,7 @@ import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useRea
 import { createSmartAccountClient } from 'permissionless';
 import { http } from 'viem';
 import { pimlicoClient } from '@/config/pimlico';
-import { sepolia } from 'viem/chains';
+import { arbitrumSepolia } from 'viem/chains';
 import { CONTRACTS } from '@/config/contracts';
 import {
   ELEMENT_NFT_ABI,
@@ -30,7 +30,7 @@ const ELEMENT_NAMES = ['Earth', 'Water', 'Wind', 'Fire', 'Ice', 'Lightning', 'Pl
 const TIER_NAMES = ['Lead', 'Silver', 'Gold'] as const;
 
 export function useElementNFT() {
-  const { writeContract, data: hash, isPending: isWagmiPending, error: wagmiError } = useWriteContract();
+  const { writeContractAsync, data: hash, isPending: isWagmiPending, error: wagmiError } = useWriteContract();
   const { smartAccountClient, isReady: isSmartAccountReady } = useSmartAccount();
   const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
   const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
@@ -45,6 +45,7 @@ export function useElementNFT() {
   // Invalidate queries on success
   useEffect(() => {
     if (isSuccess) {
+      console.log("Transaction successfully completed/confirmed! Invalidating queries.");
       queryClient.invalidateQueries();
     }
   }, [isSuccess, queryClient]);
@@ -54,9 +55,13 @@ export function useElementNFT() {
     setSmartAccountError(null);
     setSmartAccountHash(undefined);
     
+    console.log("publicMint called. Element index:", element);
+    console.log("Smart account readiness check: isReady =", isSmartAccountReady, ", hasClient =", !!smartAccountClient);
+
     // Try Smart Account first (Gasless)
     if (isSmartAccountReady && smartAccountClient) {
         try {
+            console.log("Attempting smart account gasless mint...");
             setIsSmartAccountPending(true);
             const txHash = await smartAccountClient.writeContract({
                 address: CONTRACTS.ElementNFT.address,
@@ -64,7 +69,10 @@ export function useElementNFT() {
                 functionName: 'publicMint',
                 args: [element],
                 value: BigInt('2000000000000000'), // 0.002 ETH Protocol Fee
+                chain: arbitrumSepolia,
+                account: smartAccountClient.account,
             });
+            console.log("Smart account mint tx hash generated successfully:", txHash);
             setSmartAccountHash(txHash);
             
             // Optimistic update or wait for receipt in useEffect
@@ -79,13 +87,21 @@ export function useElementNFT() {
     }
 
     // Fallback to EOA
-    return writeContract({
-      address: CONTRACTS.ElementNFT.address,
-      abi: ELEMENT_NFT_ABI,
-      functionName: 'publicMint',
-      args: [element],
-      value: BigInt('2000000000000000'), // 0.002 ETH
-    });
+    console.log("Smart account is not active or ready. Falling back to EOA mint transaction...");
+    try {
+        const txHash = await writeContractAsync({
+          address: CONTRACTS.ElementNFT.address,
+          abi: ELEMENT_NFT_ABI,
+          functionName: 'publicMint',
+          args: [element],
+          value: BigInt('2000000000000000'), // 0.002 ETH
+        } as any);
+        console.log("EOA mint tx hash generated successfully:", txHash);
+        return txHash;
+    } catch (err: unknown) {
+        console.error("EOA Mint Failed:", err);
+        throw err;
+    }
   };
 
   return {
@@ -99,7 +115,7 @@ export function useElementNFT() {
 }
 
 export function useApproveNFT() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { writeContractAsync, data: hash, isPending, error } = useWriteContract();
   const { smartAccountClient, isReady: isSmartAccountReady } = useSmartAccount();
   const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
   const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
@@ -112,6 +128,7 @@ export function useApproveNFT() {
   // Invalidate queries on success
   useEffect(() => {
     if (isSuccess) {
+      console.log("Approve/ApprovalForAll successfully confirmed! Invalidating queries.");
       queryClient.invalidateQueries();
     }
   }, [isSuccess, queryClient]);
@@ -119,18 +136,21 @@ export function useApproveNFT() {
   const approve = async (to: string, tokenId: bigint) => {
     setSmartAccountError(null);
     setSmartAccountHash(undefined);
+    console.log("approve called. to:", to, "tokenId:", tokenId);
 
     if (isSmartAccountReady && smartAccountClient) {
         try {
+            console.log("Attempting smart account approve...");
             setIsSmartAccountPending(true);
             const txHash = await smartAccountClient.writeContract({
                 address: CONTRACTS.ElementNFT.address,
                 abi: ELEMENT_NFT_ABI,
                 functionName: 'approve',
                 args: [to, tokenId],
-                chain: sepolia,
+                chain: arbitrumSepolia,
                 account: smartAccountClient.account,
             });
+            console.log("Smart account approve successful. hash:", txHash);
             setSmartAccountHash(txHash);
             return txHash;
         } catch (err: unknown) {
@@ -142,29 +162,40 @@ export function useApproveNFT() {
         }
     }
 
-    return writeContract({
-      address: CONTRACTS.ElementNFT.address,
-      abi: ELEMENT_NFT_ABI,
-      functionName: 'approve',
-      args: [to, tokenId],
-    });
+    console.log("Smart account not ready, falling back to EOA approve...");
+    try {
+        const txHash = await writeContractAsync({
+          address: CONTRACTS.ElementNFT.address,
+          abi: ELEMENT_NFT_ABI,
+          functionName: 'approve',
+          args: [to, tokenId],
+        } as any);
+        console.log("EOA approve transaction hash generated:", txHash);
+        return txHash;
+    } catch (err: unknown) {
+        console.error("EOA Approve Failed:", err);
+        throw err;
+    }
   };
 
   const setApprovalForAll = async (operator: string, approved: boolean) => {
     setSmartAccountError(null);
     setSmartAccountHash(undefined);
+    console.log("setApprovalForAll called. operator:", operator, "approved:", approved);
 
     if (isSmartAccountReady && smartAccountClient) {
         try {
+            console.log("Attempting smart account setApprovalForAll...");
             setIsSmartAccountPending(true);
             const txHash = await smartAccountClient.writeContract({
                 address: CONTRACTS.ElementNFT.address,
                 abi: ELEMENT_NFT_ABI,
                 functionName: 'setApprovalForAll',
                 args: [operator, approved],
-                chain: sepolia,
+                chain: arbitrumSepolia,
                 account: smartAccountClient.account,
             });
+            console.log("Smart account setApprovalForAll successful. hash:", txHash);
             setSmartAccountHash(txHash);
             return txHash;
         } catch (err: unknown) {
@@ -176,12 +207,20 @@ export function useApproveNFT() {
         }
     }
 
-    return writeContract({
-      address: CONTRACTS.ElementNFT.address,
-      abi: ELEMENT_NFT_ABI,
-      functionName: 'setApprovalForAll',
-      args: [operator, approved],
-    });
+    console.log("Smart account not ready, falling back to EOA setApprovalForAll...");
+    try {
+        const txHash = await writeContractAsync({
+          address: CONTRACTS.ElementNFT.address,
+          abi: ELEMENT_NFT_ABI,
+          functionName: 'setApprovalForAll',
+          args: [operator, approved],
+        } as any);
+        console.log("EOA setApprovalForAll transaction hash generated:", txHash);
+        return txHash;
+    } catch (err: unknown) {
+        console.error("EOA SetApprovalForAll Failed:", err);
+        throw err;
+    }
   };
 
   return {
@@ -209,7 +248,7 @@ export function useNFTApproval(owner: string, operator: string) {
 }
 
 export function useAlchemist() {
-  const { writeContract, data: hash, isPending: isWagmiPending, error: wagmiError } = useWriteContract();
+  const { writeContractAsync, data: hash, isPending: isWagmiPending, error: wagmiError } = useWriteContract();
   const { smartAccountClient, isReady: isSmartAccountReady } = useSmartAccount();
   const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
   const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
@@ -222,6 +261,7 @@ export function useAlchemist() {
   // Invalidate queries on success
   useEffect(() => {
     if (isSuccess) {
+      console.log("Craft/Transmutation successfully confirmed! Invalidating queries.");
       queryClient.invalidateQueries();
     }
   }, [isSuccess, queryClient]);
@@ -230,9 +270,11 @@ export function useAlchemist() {
      // RESET STATE
     setSmartAccountError(null);
     setSmartAccountHash(undefined);
+    console.log("craft called. tokenIds:", tokenIds);
     
      if (isSmartAccountReady && smartAccountClient) {
         try {
+            console.log("Attempting smart account craft...");
             setIsSmartAccountPending(true);
             const txHash = await smartAccountClient.writeContract({
                 address: CONTRACTS.Alchemist.address,
@@ -240,9 +282,10 @@ export function useAlchemist() {
                 functionName: 'craft',
                 args: [tokenIds],
                 value: BigInt('2000000000000000'), // 0.002 ETH Protocol Fee
-                chain: sepolia,
+                chain: arbitrumSepolia,
                 account: smartAccountClient.account,
             });
+            console.log("Smart account craft successful. hash:", txHash);
             setSmartAccountHash(txHash);
             return txHash;
         } catch (err: unknown) {
@@ -254,13 +297,21 @@ export function useAlchemist() {
         }
     }
 
-    return writeContract({
-      address: CONTRACTS.Alchemist.address,
-      abi: ALCHEMIST_CONTRACT_ABI,
-      functionName: 'craft',
-      args: [tokenIds],
-      value: BigInt('2000000000000000'), // 0.002 ETH
-    });
+    console.log("Smart account not ready, falling back to EOA craft...");
+    try {
+        const txHash = await writeContractAsync({
+          address: CONTRACTS.Alchemist.address,
+          abi: ALCHEMIST_CONTRACT_ABI,
+          functionName: 'craft',
+          args: [tokenIds],
+          value: BigInt('2000000000000000'), // 0.002 ETH
+        } as any);
+        console.log("EOA craft transaction hash generated:", txHash);
+        return txHash;
+    } catch (err: unknown) {
+        console.error("EOA Craft Failed:", err);
+        throw err;
+    }
   };
 
   return {
@@ -274,7 +325,7 @@ export function useAlchemist() {
 }
 
 export function useYieldVault() {
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { writeContractAsync, data: hash, isPending, error } = useWriteContract();
   const { smartAccountClient, isReady: isSmartAccountReady } = useSmartAccount();
   const [smartAccountHash, setSmartAccountHash] = useState<`0x${string}` | undefined>(undefined);
   const [isSmartAccountPending, setIsSmartAccountPending] = useState(false);
@@ -287,6 +338,7 @@ export function useYieldVault() {
   // Invalidate queries on success
   useEffect(() => {
     if (isSuccess) {
+      console.log("Stake/Unstake/ClaimYield successfully confirmed! Invalidating queries.");
       queryClient.invalidateQueries();
     }
   }, [isSuccess, queryClient]);
@@ -294,32 +346,22 @@ export function useYieldVault() {
   const stake = async (tokenId: bigint, tier: number) => {
     setSmartAccountError(null);
     setSmartAccountHash(undefined);
+    console.log("stake called. tokenId:", tokenId, "tier:", tier);
 
     if (isSmartAccountReady && smartAccountClient) {
         try {
+            console.log("Attempting smart account stake...");
             setIsSmartAccountPending(true);
 
-            // Create Self-Funded Client (User pays gas)
-            const selfFundedClient = createSmartAccountClient({
-                account: smartAccountClient.account,
-                chain: sepolia,
-                bundlerTransport: http(`https://api.pimlico.io/v2/sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
-                userOperation: {
-                    estimateFeesPerGas: async () => {
-                        return (await pimlicoClient.getUserOperationGasPrice()).fast;
-                    }
-                }
-            });
-
-            const txHash = await selfFundedClient.writeContract({
+            const txHash = await smartAccountClient.writeContract({
                 address: CONTRACTS.YieldVault.address,
                 abi: YIELD_VAULT_ABI,
                 functionName: 'stake',
                 args: [tokenId, tier],
-                value: BigInt(0),
-                chain: sepolia,
+                chain: arbitrumSepolia,
                 account: smartAccountClient.account,
             });
+            console.log("Smart account stake successful. hash:", txHash);
             setSmartAccountHash(txHash);
             return txHash;
         } catch (err: unknown) {
@@ -331,43 +373,41 @@ export function useYieldVault() {
         }
     }
 
-    return writeContract({
-      address: CONTRACTS.YieldVault.address,
-      abi: YIELD_VAULT_ABI,
-      functionName: 'stake',
-      args: [tokenId, tier],
-    });
+    console.log("Smart account not ready, falling back to EOA stake...");
+    try {
+        const txHash = await writeContractAsync({
+          address: CONTRACTS.YieldVault.address,
+          abi: YIELD_VAULT_ABI,
+          functionName: 'stake',
+          args: [tokenId, tier],
+        } as any);
+        console.log("EOA stake transaction hash generated:", txHash);
+        return txHash;
+    } catch (err: unknown) {
+        console.error("EOA Stake Failed:", err);
+        throw err;
+    }
   };
 
   const unstake = async (tokenId: bigint) => {
     setSmartAccountError(null);
     setSmartAccountHash(undefined);
+    console.log("unstake called. tokenId:", tokenId);
 
     if (isSmartAccountReady && smartAccountClient) {
         try {
+            console.log("Attempting smart account unstake...");
             setIsSmartAccountPending(true);
             
-            // Create Self-Funded Client (User pays gas)
-            const selfFundedClient = createSmartAccountClient({
-                account: smartAccountClient.account,
-                chain: sepolia,
-                bundlerTransport: http(`https://api.pimlico.io/v2/sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
-                userOperation: {
-                    estimateFeesPerGas: async () => {
-                        return (await pimlicoClient.getUserOperationGasPrice()).fast;
-                    }
-                }
-            });
-
-            const txHash = await selfFundedClient.writeContract({
+            const txHash = await smartAccountClient.writeContract({
                 address: CONTRACTS.YieldVault.address,
                 abi: YIELD_VAULT_ABI,
                 functionName: 'unstake',
                 args: [tokenId],
-                value: BigInt(0),
-                chain: sepolia,
+                chain: arbitrumSepolia,
                 account: smartAccountClient.account,
             });
+            console.log("Smart account unstake successful. hash:", txHash);
             setSmartAccountHash(txHash);
             return txHash;
         } catch (err: unknown) {
@@ -379,43 +419,41 @@ export function useYieldVault() {
         }
     }
 
-    return writeContract({
-      address: CONTRACTS.YieldVault.address,
-      abi: YIELD_VAULT_ABI,
-      functionName: 'unstake',
-      args: [tokenId],
-    });
+    console.log("Smart account not ready, falling back to EOA unstake...");
+    try {
+        const txHash = await writeContractAsync({
+          address: CONTRACTS.YieldVault.address,
+          abi: YIELD_VAULT_ABI,
+          functionName: 'unstake',
+          args: [tokenId],
+        } as any);
+        console.log("EOA unstake transaction hash generated:", txHash);
+        return txHash;
+    } catch (err: unknown) {
+        console.error("EOA Unstake Failed:", err);
+        throw err;
+    }
   };
 
   const claimYield = async (tokenId: bigint) => {
     setSmartAccountError(null);
     setSmartAccountHash(undefined);
+    console.log("claimYield called. tokenId:", tokenId);
 
     if (isSmartAccountReady && smartAccountClient) {
         try {
+            console.log("Attempting smart account claimYield...");
             setIsSmartAccountPending(true);
 
-            // Create Self-Funded Client (User pays gas)
-            const selfFundedClient = createSmartAccountClient({
-                account: smartAccountClient.account,
-                chain: sepolia,
-                bundlerTransport: http(`https://api.pimlico.io/v2/sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
-                userOperation: {
-                    estimateFeesPerGas: async () => {
-                        return (await pimlicoClient.getUserOperationGasPrice()).fast;
-                    }
-                }
-            });
-
-            const txHash = await selfFundedClient.writeContract({
+            const txHash = await smartAccountClient.writeContract({
                 address: CONTRACTS.YieldVault.address,
                 abi: YIELD_VAULT_ABI,
                 functionName: 'claimYield',
                 args: [tokenId],
-                value: BigInt(0),
-                chain: sepolia,
+                chain: arbitrumSepolia,
                 account: smartAccountClient.account,
             });
+            console.log("Smart account claimYield successful. hash:", txHash);
             setSmartAccountHash(txHash);
             return txHash;
         } catch (err: unknown) {
@@ -427,12 +465,20 @@ export function useYieldVault() {
         }
     }
 
-    return writeContract({
-      address: CONTRACTS.YieldVault.address,
-      abi: YIELD_VAULT_ABI,
-      functionName: 'claimYield',
-      args: [tokenId],
-    });
+    console.log("Smart account not ready, falling back to EOA claimYield...");
+    try {
+        const txHash = await writeContractAsync({
+          address: CONTRACTS.YieldVault.address,
+          abi: YIELD_VAULT_ABI,
+          functionName: 'claimYield',
+          args: [tokenId],
+        } as any);
+        console.log("EOA claimYield transaction hash generated:", txHash);
+        return txHash;
+    } catch (err: unknown) {
+        console.error("EOA ClaimYield Failed:", err);
+        throw err;
+    }
   };
 
   return {

@@ -3,11 +3,11 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const RPC_URL = process.env.VITE_INFURA_RPC_URL;
-const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const SWAP_ROUTER = "0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E";
-const WETH_ADDRESS = "0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14";
-const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
+const RPC_URL = process.env.ARBITRUM_SEPOLIA_RPC_URL || process.env.VITE_INFURA_RPC_URL || "https://sepolia-rollup.arbitrum.io/rpc";
+const PRIVATE_KEY = process.env.BOT_PRIVATE_KEY || process.env.PRIVATE_KEY;
+const SWAP_ROUTER = "0x101F443B4d1b059569D643917553c771E1b9663E"; // Arbitrum Sepolia SwapRouter02
+const WETH_ADDRESS = "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73"; // Arbitrum Sepolia WETH
+const USDC_ADDRESS = "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d"; // Arbitrum Sepolia USDC
 
 const ERC20_ABI = [
     "function approve(address spender, uint256 amount) external returns (bool)",

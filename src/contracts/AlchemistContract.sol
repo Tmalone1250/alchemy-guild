@@ -3,6 +3,7 @@ pragma solidity ^0.8.30;
 
 import {ElementNFT} from "./ElementNFT.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {IGuildDistributor} from "./interfaces/IGuildDistributor.sol";
 
 contract AlchemistContract is AccessControl {
     bytes32 public constant WITHDRAWER_ROLE = keccak256("WITHDRAWER_ROLE");
@@ -40,6 +41,9 @@ contract AlchemistContract is AccessControl {
     // State variables
     ElementNFT public immutable I_ELEMENT_NFT;
     address public immutable TREASURY;
+    address public guildDistributor;
+
+    event GuildDistributorSet(address indexed distributor);
 
     // Mappings
     mapping(bytes32 => Recepie) public recepies;
@@ -156,6 +160,16 @@ contract AlchemistContract is AccessControl {
             recepie.resultTier,
             uint8(recepie.resultElement)
         );
+
+        if (guildDistributor != address(0)) {
+            uint256 rewardAmount = recepie.resultTier == 3 ? 250 * 1e18 : 50 * 1e18;
+            IGuildDistributor(guildDistributor).rewardUser(msg.sender, rewardAmount);
+        }
+    }
+
+    function setGuildDistributor(address _distributor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        guildDistributor = _distributor;
+        emit GuildDistributorSet(_distributor);
     }
 
     // withdrawEth() function

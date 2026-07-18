@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.35;
+pragma solidity ^0.8.27;
 
 import {HandleUtils} from "../utils/HandleUtils.sol";
 import {TEEType, TypeUtils} from "../utils/TypeUtils.sol";

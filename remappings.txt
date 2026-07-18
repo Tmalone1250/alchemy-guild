@@ -1,0 +1,7 @@
+@account-abstraction/=node_modules/@account-abstraction/
+@openzeppelin/=node_modules/@openzeppelin/
+@uniswap/=node_modules/@uniswap/
+base64-sol/=node_modules/base64-sol/
+forge-std/=lib/forge-std/src/
+@iexec-nox/nox-protocol-contracts/=node_modules/@iexec-nox/nox-protocol-contracts/
+encrypted-types/=node_modules/encrypted-types/

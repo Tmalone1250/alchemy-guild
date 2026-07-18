@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPublicClient, http, fallback, parseAbiItem, formatEther } from 'viem';
-import { sepolia } from 'viem/chains';
+import { arbitrumSepolia } from 'viem/chains';
 import { CONTRACTS, DEPLOYMENT_BLOCK } from '../config/contracts';
 
 export interface ProtocolStats {
@@ -17,16 +17,15 @@ export interface ProtocolStats {
 const CHUNK_SIZE = 40000n; 
 const CONCURRENCY_LIMIT = 5; 
 
-// Fallback transport with multiple Sepolia RPCs to automatically failover if rate limited (CORS-friendly)
+// Fallback transport with multiple Arbitrum Sepolia RPCs to automatically failover if rate limited (CORS-friendly)
 const urls = [
-    import.meta.env.VITE_INFURA_RPC_URL,
-    'https://sepolia.gateway.tenderly.co',
-    'https://eth-sepolia.public.blastapi.io',
-    'https://rpc2.sepolia.org'
+    'https://sepolia-rollup.arbitrum.io/rpc',
+    'https://arbitrum-sepolia-rpc.publicnode.com',
+    'https://arbitrum-sepolia.blockpi.network/v1/rpc/public'
 ].filter(Boolean) as string[];
 
 const analyticsClient = createPublicClient({
-    chain: sepolia,
+    chain: arbitrumSepolia,
     transport: fallback(
         urls.map(url => http(url, { timeout: 30_000 }))
     )
@@ -205,25 +204,27 @@ export function useProtocolStats() {
                 }
 
                 // --- 3. Process Volume & TVL ---
-                const poolAddress = CONTRACTS.Pool.address as `0x${string}`;
-
-                // Fetch Swaps for Volume
-                const volumeFromBlock = currentBlock - 7200n;
-                const swapLogs = await analyticsClient.getLogs({
-                    address: poolAddress,
-                    event: parseAbiItem('event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)'),
-                    fromBlock: volumeFromBlock > 0n ? volumeFromBlock : 0n,
-                    toBlock: currentBlock,
-                });
+                const poolAddress = (CONTRACTS as any).Pool?.address;
 
                 let volumeWeth = 0n;
-                swapLogs.forEach(log => {
-                    const amount1 = log.args.amount1!;
-                    volumeWeth += amount1 < 0n ? -amount1 : amount1;
-                });
+                if (poolAddress) {
+                    // Fetch Swaps for Volume
+                    const volumeFromBlock = currentBlock - 7200n;
+                    const swapLogs = await analyticsClient.getLogs({
+                        address: poolAddress,
+                        event: parseAbiItem('event Swap(address indexed sender, address indexed recipient, int256 amount0, int256 amount1, uint160 sqrtPriceX96, uint128 liquidity, int24 tick)'),
+                        fromBlock: volumeFromBlock > 0n ? volumeFromBlock : 0n,
+                        toBlock: currentBlock,
+                    } as any);
+
+                    swapLogs.forEach(log => {
+                        const amount1 = (log as any).args.amount1!;
+                        volumeWeth += amount1 < 0n ? -amount1 : amount1;
+                    });
+                }
 
                 // Fetch YieldVault's USDC balance for TVL
-                const vaultUsdc = await analyticsClient.readContract({
+                const vaultUsdc = await (analyticsClient.readContract as any)({
                     address: CONTRACTS.USDC.address as `0x${string}`,
                     abi: [parseAbiItem('function balanceOf(address) view returns (uint256)')],
                     functionName: 'balanceOf',

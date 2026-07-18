@@ -63,7 +63,7 @@ export default function Dashboard() {
     return `$${usdc.toFixed(2)}`;
   };
 
-  const formatYieldIndex = (value: bigint | undefined) => {
+  const formatYieldIndex = (value: any) => {
     if (!value) return '1.0000';
     return (Number(value) / 1e18).toFixed(4);
   };

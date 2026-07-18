@@ -6,7 +6,7 @@ dotenv.config();
 const TX_HASH = '0xd229b2267fb7138c1c71e2d30bd8c397a1503055842cd44331266b7cf29c600c';
 
 async function analyzeTransaction() {
-    const provider = new ethers.JsonRpcProvider(process.env.VITE_INFURA_RPC_URL!);
+    const provider = new ethers.JsonRpcProvider(process.env.ARBITRUM_SEPOLIA_RPC_URL || process.env.VITE_INFURA_RPC_URL!);
 
     console.log('\n🔍 Analyzing Transaction:', TX_HASH);
     console.log('='.repeat(70), '\n');
@@ -24,8 +24,8 @@ async function analyzeTransaction() {
     console.log(`\nLogs (Events): ${receipt.logs.length} events\n`);
 
     // Decode USDC transfers
-    const USDC_ADDRESS = '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238';
-    const VAULT_ADDRESS = '0xDC684AD1406BdcEd18c2224d75a53c6B5FAea773';
+    const USDC_ADDRESS = '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d';
+    const VAULT_ADDRESS = '0x2Ed51bD2CD7148197C8aBbF53D171e1c8bb41CdC';
 
     const transferTopic = ethers.id('Transfer(address,address,uint256)');
 

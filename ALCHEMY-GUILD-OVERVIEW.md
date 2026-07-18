@@ -1,8 +1,15 @@
 # Alchemy Guild: Complete Project Overview
 
+## 🏆 WTF!! Hackathon Summer Edition Submission & iExec Nox Integration
+
+This repository contains the full codebase for **Alchemy Guild**, submitted to the **WTF!! Hackathon Summer Edition**. It features a production-ready integration with the **iExec Nox Protocol** for encrypted on-chain state:
+* **Confidential Target Ticks**: Nox handles tick encryption within the automated Volume Bot's `rebalance()` ritual, protecting liquidity range adjustments from potential front-running or sandwich attacks.
+
+---
+
 ## Executive Summary
 
-**Alchemy Guild** is a production-ready gamified DeFi protocol that transforms traditional NFT staking into an immersive elemental alchemy experience. Users collect, craft, and stake elemental NFTs to earn **GOLD** (USDC) generated from real **Uniswap V3 liquidity provision**. The project combines gaming mechanics with sophisticated DeFi infrastructure, featuring **fully gasless transactions** powered by ERC-4337 Account Abstraction and a **self-sustaining economic model** where protocol fees automatically fund gas sponsorship.
+**Alchemy Guild** is a production-ready gamified DeFi protocol that transforms traditional NFT staking into an immersive elemental alchemy experience. Users collect, craft, and stake elemental NFTs to earn **GOLD** (USDC) generated from real **Uniswap V3 liquidity provision**. The project combines gaming mechanics with sophisticated DeFi infrastructure, featuring **fully gasless transactions** powered by ERC-4337 Account Abstraction, confidential state powered by **iExec Nox Protocol**, and a **self-sustaining economic model** where protocol fees automatically fund gas sponsorship.
 
 **Core Innovation**: A closed-loop sustainable economy where:
 

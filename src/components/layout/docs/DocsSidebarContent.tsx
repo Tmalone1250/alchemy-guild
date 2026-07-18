@@ -8,7 +8,8 @@ import {
     Code2,
     Scroll,
     ArrowLeft,
-    Hexagon
+    Hexagon,
+    Landmark
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ const navItems = [
     { path: '/docs/gameplay', label: 'Gameplay', icon: Gamepad2 },
     { path: '/docs/staking', label: 'Staking & Vault', icon: Scroll },
     { path: '/docs/economics', label: 'Economics', icon: Coins },
+    { path: '/docs/dao', label: 'TEE Governance (DAO)', icon: Landmark },
     { path: '/docs/technical', label: 'Technical', icon: Code2 },
 ];
 

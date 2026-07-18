@@ -4,7 +4,7 @@ import { Wallet, ArrowDownCircle, ArrowUpCircle, Copy, Check, ExternalLink } fro
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSmartAccount } from '@/hooks/useSmartAccount';
-import { useBalance, useSendTransaction, useAccount } from 'wagmi';
+import { useBalance, useSendTransaction, useAccount, useReadContract, useWriteContract } from 'wagmi';
 import {
     Select,
     SelectContent,
@@ -15,26 +15,26 @@ import {
 import { parseEther, formatEther, encodeFunctionData, parseUnits, type Hex } from 'viem';
 import { toast } from 'sonner';
 import { shortenAddress } from '@/lib/utils';
-import { SEPOLIA_CHAIN, CONTRACTS } from '@/config/contracts';
+import { BASE_SEPOLIA_CHAIN, CONTRACTS } from '@/config/contracts';
 import { createSmartAccountClient } from 'permissionless';
-import { useReadContract } from 'wagmi';
 import { http } from 'viem';
-import { sepolia } from 'viem/chains';
+import { arbitrumSepolia } from 'viem/chains';
 import { pimlicoClient } from '@/config/pimlico';
 
 export function SmartWalletCard() {
     const { smartAccountAddress, isReady, smartAccountClient } = useSmartAccount();
     const { address: eoaAddress } = useAccount();
+    const targetAddress = smartAccountAddress || eoaAddress;
 
     const { data: balance, refetch: refetchBalance } = useBalance({
-        address: smartAccountAddress,
+        address: targetAddress || undefined,
         query: {
-            enabled: !!smartAccountAddress,
+            enabled: !!targetAddress,
             refetchInterval: 5000,
         }
     });
 
-    const { data: usdcBalance } = useReadContract({
+    const { data: usdcBalance, refetch: refetchUsdcBalance } = useReadContract({
         address: CONTRACTS.USDC.address,
         abi: [{
             name: 'balanceOf',
@@ -44,18 +44,55 @@ export function SmartWalletCard() {
             outputs: [{ name: '', type: 'uint256' }],
         }] as const,
         functionName: 'balanceOf',
-        args: smartAccountAddress ? [smartAccountAddress] : undefined,
+        args: targetAddress ? [targetAddress] : undefined,
         query: {
-            enabled: !!smartAccountAddress,
+            enabled: !!targetAddress,
             refetchInterval: 5000,
         }
     });
 
+    const { data: guildBalance, refetch: refetchGuildBalance } = useReadContract({
+        address: CONTRACTS.GuildToken.address,
+        abi: [{
+            name: 'balanceOf',
+            type: 'function',
+            stateMutability: 'view',
+            inputs: [{ name: 'account', type: 'address' }],
+            outputs: [{ name: '', type: 'uint256' }],
+        }] as const,
+        functionName: 'balanceOf',
+        args: targetAddress ? [targetAddress] : undefined,
+        query: {
+            enabled: !!targetAddress,
+            refetchInterval: 5000,
+        }
+    });
+
+    const { data: cGuildBalance, refetch: refetchCGuildBalance } = useReadContract({
+        address: CONTRACTS.cGUILD.address,
+        abi: [{
+            name: 'balanceOf',
+            type: 'function',
+            stateMutability: 'view',
+            inputs: [{ name: 'account', type: 'address' }],
+            outputs: [{ name: '', type: 'bytes32' }],
+        }] as const,
+        functionName: 'balanceOf',
+        args: targetAddress ? [targetAddress] : undefined,
+        query: {
+            enabled: !!targetAddress,
+            refetchInterval: 5000,
+        }
+    });
+
+    const isCGuildActive = cGuildBalance && typeof cGuildBalance === 'string' && !/^0x0+$/.test(cGuildBalance);
+
     const { sendTransactionAsync, isPending: isDepositPending } = useSendTransaction();
+    const { writeContractAsync } = useWriteContract();
 
     const [amount, setAmount] = useState('');
     const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
-    const [token, setToken] = useState<'ETH' | 'USDC'>('ETH');
+    const [token, setToken] = useState<'ETH' | 'USDC' | 'GUILD'>('ETH');
     const [copied, setCopied] = useState(false);
     const [isWithdrawPending, setIsWithdrawPending] = useState(false);
 
@@ -72,20 +109,43 @@ export function SmartWalletCard() {
         if (!amount || !smartAccountAddress) return;
 
         try {
-            const weiAmount = parseEther(amount);
-
             if (mode === 'deposit') {
                 if (!eoaAddress) {
                     toast.error('Please connect your wallet first');
                     return;
                 }
-                toast.loading('Confirm deposit in your wallet...', { id: 'wallet-action' });
-                const hash = await sendTransactionAsync({
-                    to: smartAccountAddress,
-                    value: weiAmount,
-                });
+                if (token === 'ETH') {
+                    const weiAmount = parseEther(amount);
+                    toast.loading('Confirm ETH deposit in your wallet...', { id: 'wallet-action' });
+                    await sendTransactionAsync({
+                        to: smartAccountAddress,
+                        value: weiAmount,
+                    });
+                } else {
+                    const tokenAddr = token === 'USDC' ? CONTRACTS.USDC.address : CONTRACTS.GuildToken.address;
+                    const tokenDecimals = token === 'USDC' ? 6 : 18;
+                    const tokenAmount = parseUnits(amount, tokenDecimals);
+                    toast.loading(`Confirm ${token} deposit in your wallet...`, { id: 'wallet-action' });
+                    await writeContractAsync({
+                        address: tokenAddr,
+                        abi: [{
+                            name: 'transfer',
+                            type: 'function',
+                            inputs: [{ name: 'to', type: 'address' }, { name: 'amount', type: 'uint256' }],
+                            outputs: [{ name: '', type: 'bool' }]
+                        }],
+                        functionName: 'transfer',
+                        args: [smartAccountAddress, tokenAmount]
+                    } as any);
+                }
                 toast.success('Deposit initiated! Funds will arrive shortly.', { id: 'wallet-action' });
                 setAmount('');
+                setTimeout(() => {
+                    refetchBalance();
+                    refetchUsdcBalance();
+                    refetchGuildBalance();
+                    refetchCGuildBalance();
+                }, 2000);
             } else {
                 // Withdraw logic
                 if (!smartAccountClient) return;
@@ -100,8 +160,8 @@ export function SmartWalletCard() {
                 // Create a temporary client WITHOUT Paymaster for withdrawals (User pays gas)
                 const withdrawalClient = createSmartAccountClient({
                     account: smartAccountClient.account,
-                    chain: sepolia,
-                    bundlerTransport: http(`https://api.pimlico.io/v2/sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
+                    chain: arbitrumSepolia,
+                    bundlerTransport: http(`https://api.pimlico.io/v2/arbitrum-sepolia/rpc?apikey=${import.meta.env.VITE_PIMLICO_API_KEY}`),
                     userOperation: {
                         estimateFeesPerGas: async () => {
                             return (await pimlicoClient.getUserOperationGasPrice()).fast;
@@ -111,20 +171,16 @@ export function SmartWalletCard() {
 
                 let txHash;
                 if (token === 'ETH') {
-                    // Send ETH from Smart Account to EOA (Self-Funded Gas)
+                    const weiAmount = parseEther(amount);
                     txHash = await withdrawalClient.sendTransaction({
                         to: eoaAddress,
                         value: weiAmount,
                         data: '0x'
                     } as any);
                 } else {
-                    // Send USDC
-                    // 1. Check if amount is valid
-                    if (!amount || isNaN(Number(amount))) throw new Error("Invalid amount");
-
-                    // 2. Encode ERC20 transfer
-                    // USDC has 6 decimals
-                    const usdcAmount = parseUnits(amount, 6);
+                    const tokenAddr = token === 'USDC' ? CONTRACTS.USDC.address : CONTRACTS.GuildToken.address;
+                    const tokenDecimals = token === 'USDC' ? 6 : 18;
+                    const tokenAmount = parseUnits(amount, tokenDecimals);
 
                     const data = encodeFunctionData({
                         abi: [{
@@ -134,20 +190,24 @@ export function SmartWalletCard() {
                             outputs: [{ name: '', type: 'bool' }]
                         }],
                         functionName: 'transfer',
-                        args: [eoaAddress, usdcAmount]
+                        args: [eoaAddress, tokenAmount]
                     });
 
                     txHash = await withdrawalClient.sendTransaction({
-                        to: CONTRACTS.USDC.address,
+                        to: tokenAddr,
                         value: 0n,
                         data: data as Hex
-                    } as any); // Type assertion to bypass strict KZG check on Sepolia config
+                    } as any);
                 }
 
                 toast.success('Withdrawal successful!', { id: 'wallet-action' });
                 setAmount('');
-                // Refresh balance after short delay
-                setTimeout(() => refetchBalance(), 2000);
+                setTimeout(() => {
+                    refetchBalance();
+                    refetchUsdcBalance();
+                    refetchGuildBalance();
+                    refetchCGuildBalance();
+                }, 2000);
             }
         } catch (err: any) {
             console.error(err);
@@ -186,8 +246,19 @@ export function SmartWalletCard() {
                             <div className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/50 bg-clip-text text-transparent">
                                 {balance ? parseFloat(formatEther(balance.value)).toFixed(4) : '0.0000'} ETH
                             </div>
-                            <div className="text-lg font-semibold text-foreground/80 mt-1">
-                                {usdcBalance ? (Number(usdcBalance) / 1e6).toFixed(2) : '0.00'} USDC
+                            <div className="flex flex-wrap items-center gap-4 mt-2">
+                                <div className="text-lg font-semibold text-foreground/80">
+                                    {usdcBalance ? (Number(usdcBalance) / 1e6).toFixed(2) : '0.00'} USDC
+                                </div>
+                                <div className="text-lg font-semibold text-[#d4af37]">
+                                    {guildBalance ? (Number(guildBalance) / 1e18).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'} GUILD
+                                </div>
+                                <div className="text-lg font-semibold text-emerald-400">
+                                    {isCGuildActive
+                                        ? `Shielded [${String(cGuildBalance).slice(2, 8)}...] cGUILD`
+                                        : '0.00 cGUILD'
+                                    }
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -199,7 +270,7 @@ export function SmartWalletCard() {
                                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                             </button>
                             <a
-                                href={`${SEPOLIA_CHAIN.blockExplorers.default.url}/address/${smartAccountAddress}`}
+                                href={`${BASE_SEPOLIA_CHAIN.blockExplorers.default.url}/address/${smartAccountAddress}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="hover:text-primary transition-colors"
@@ -242,7 +313,9 @@ export function SmartWalletCard() {
                             <span className="text-muted-foreground">Amount</span>
                             <span className="text-muted-foreground">Balance: {token === 'ETH'
                                 ? (balance ? parseFloat(formatEther(balance.value)).toFixed(4) : '0.00')
-                                : (usdcBalance ? (Number(usdcBalance) / 1e6).toFixed(2) : '0.00')} {token}
+                                : token === 'USDC'
+                                    ? (usdcBalance ? (Number(usdcBalance) / 1e6).toFixed(2) : '0.00')
+                                    : (guildBalance ? (Number(guildBalance) / 1e18).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00')} {token}
                             </span>
                         </div>
 
@@ -256,14 +329,15 @@ export function SmartWalletCard() {
                                     className="bg-background/50 font-mono"
                                 />
                             </div>
-                            <div className="w-[100px]">
-                                <Select value={token} onValueChange={(v: 'ETH' | 'USDC') => setToken(v)}>
+                            <div className="w-[110px]">
+                                <Select value={token} onValueChange={(v: 'ETH' | 'USDC' | 'GUILD') => setToken(v)}>
                                     <SelectTrigger className="bg-background/50">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="ETH">ETH</SelectItem>
-                                        {mode === 'withdraw' && <SelectItem value="USDC">USDC</SelectItem>}
+                                        <SelectItem value="USDC">USDC</SelectItem>
+                                        <SelectItem value="GUILD">GUILD</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

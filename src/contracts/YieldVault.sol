@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.35;
+pragma solidity ^0.8.30;
 
 import {ISwapRouter, INonfungiblePositionManager, IUniswapV3Pool} from "./IUniswap.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
@@ -122,7 +122,7 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
 
     // Set ElementNFT address (Circular Dependency Resolution)
     function setElementNFT(address _elementNFT) external onlyOwner {
-        require(address(I_ELEMENT_NFT) == address(0), "Already set");
+        require(_elementNFT != address(0), "Invalid address");
         I_ELEMENT_NFT = ElementNFT(_elementNFT);
         emit ElementNFTSet(_elementNFT);
     }

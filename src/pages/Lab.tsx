@@ -87,28 +87,37 @@ export default function Lab() {
       .map((slot) => BigInt(slot.tokenId)) as [bigint, bigint, bigint];
 
     try {
+      console.log('Lab: Initiating craft/transmutation process for tokenIds:', tokenIds);
+      console.log('Lab: Recipe Output:', recipeOutput);
       toast.loading('Confirm transaction in your wallet...', { id: 'craft' });
-      await craft(tokenIds);
+      const txHash = await craft(tokenIds);
+      console.log('Lab: craft call returned txHash:', txHash);
       toast.loading('Transmuting Elements...', { id: 'craft' });
     } catch (err: any) {
+      console.error('Lab handleCraft catch block exception:', err);
       if (err.message?.includes('User rejected')) {
         toast.error('Transaction rejected', { id: 'craft' });
       } else {
-        toast.error('Failed to craft', { id: 'craft' });
+        const errorMsg = err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+        toast.error(`Failed to craft: ${errorMsg.slice(0, 80)}`, { id: 'craft' });
       }
     }
   };
 
   useEffect(() => {
     if (isSuccess) {
-      toast.success('Transmutation complete! New Element created!', { id: 'craft' });
+      console.log('Lab: isSuccess triggered. Transmutation complete!');
+      const rewardText = recipeOutput?.outputTier === 3 ? '+250 GUILD High Alchemist Reward' : '+50 GUILD Alchemy Bonus';
+      toast.success(`Transmutation complete! New Element created! (${rewardText} Granted)`, { id: 'craft', duration: 6000 });
       setSelectedSlots([null, null, null]);
     }
-  }, [isSuccess]);
+  }, [isSuccess, recipeOutput]);
 
   useEffect(() => {
     if (error) {
-      toast.error('Transaction failed', { id: 'craft' });
+      console.error('Lab: useAlchemist hook returned error state:', error);
+      const errorMsg = error.message || (typeof error === 'object' ? JSON.stringify(error) : String(error));
+      toast.error(`Transaction failed: ${errorMsg.slice(0, 80)}`, { id: 'craft' });
     }
   }, [error]);
 
@@ -256,6 +265,23 @@ export default function Lab() {
           <AlertTriangle className="w-4 h-4 text-primary" />
           <span>Requires <span className="font-mono text-primary">{CRAFT_FEE} ETH</span> Protocol Fee</span>
         </div>
+
+        {/* Reward Preview Pill */}
+        {canCraft && recipeOutput && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="mt-5 flex justify-center"
+          >
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/40 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 gold-glow animate-pulse">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold text-primary">
+                Transmute-to-Earn: {recipeOutput.outputTier === 3 ? '+250 GUILD High Alchemist Reward' : '+50 GUILD Alchemy Bonus'}
+              </span>
+            </div>
+          </motion.div>
+        )}
+
 
         {/* Recipes Button */}
         <div className="mt-6 flex justify-center">

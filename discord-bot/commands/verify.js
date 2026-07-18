@@ -24,7 +24,7 @@ module.exports = {
 
         try {
             // 2. Setup Provider & Contract
-            const provider = new ethers.JsonRpcProvider(process.env.SEPOLIA_RPC_URL);
+            const provider = new ethers.JsonRpcProvider(process.env.ARBITRUM_SEPOLIA_RPC_URL || process.env.VITE_INFURA_RPC_URL || process.env.SEPOLIA_RPC_URL || "https://sepolia-rollup.arbitrum.io/rpc");
             const contract = new ethers.Contract(CONTRACT_CONFIG.ADDRESS, CONTRACT_CONFIG.ABI, provider);
 
             // 3. Check Balance

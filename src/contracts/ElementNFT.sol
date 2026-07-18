@@ -6,6 +6,7 @@ import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
+import {IGuildDistributor} from "./interfaces/IGuildDistributor.sol";
 
 contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
     using Strings for uint256;
@@ -18,6 +19,9 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
     // State variables
     uint256 private _tokenIdCounter;
     address public immutable TREASURY;
+    address public guildDistributor;
+
+    event GuildDistributorSet(address indexed distributor);
     
     // Mapping to store token tiers
     mapping(uint256 => uint8) private sTokenElements;
@@ -66,6 +70,15 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
         
         _mint(msg.sender, tokenId);
         _tokenIdCounter++;
+
+        if (guildDistributor != address(0)) {
+            IGuildDistributor(guildDistributor).rewardUser(msg.sender, 10 * 1e18);
+        }
+    }
+    
+    function setGuildDistributor(address _distributor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        guildDistributor = _distributor;
+        emit GuildDistributorSet(_distributor);
     }
     
     // Burn function that accepts token ID

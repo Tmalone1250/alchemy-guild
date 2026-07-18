@@ -8,12 +8,14 @@ import Inventory from "@/pages/Inventory";
 import Lab from "@/pages/Lab";
 import Vault from "@/pages/Vault";
 import Analytics from "@/pages/Analytics";
+import DAO from "@/pages/DAO";
 import LandingPage from "@/pages/LandingPage";
 import DocsIntro from "@/pages/docs/Intro";
 import DocsGameplay from "@/pages/docs/Gameplay";
 import DocsStaking from "@/pages/docs/Staking";
 import DocsEconomics from "@/pages/docs/Economics";
 import DocsTechnical from "@/pages/docs/Technical";
+import DocsDAO from "@/pages/docs/DAO";
 import NotFound from "@/pages/NotFound";
 
 const App = () => (
@@ -42,6 +44,7 @@ const App = () => (
           <Route path="gameplay" element={<DocsGameplay />} />
           <Route path="staking" element={<DocsStaking />} />
           <Route path="economics" element={<DocsEconomics />} />
+          <Route path="dao" element={<DocsDAO />} />
           <Route path="technical" element={<DocsTechnical />} />
         </Route>
 
@@ -51,6 +54,7 @@ const App = () => (
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/lab" element={<Lab />} />
           <Route path="/vault" element={<Vault />} />
+          <Route path="/dao" element={<DAO />} />
           <Route path="/analytics" element={<Analytics />} />
         </Route>
         <Route path="*" element={<NotFound />} />

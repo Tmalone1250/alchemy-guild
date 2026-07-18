@@ -16,7 +16,7 @@ export function useSetupRoles() {
         ELEMENT_NFT_ROLES.BURNER_ROLE,
         CONTRACTS.Alchemist.address,
       ],
-    });
+    } as any);
   };
 
   const grantMinterRole = async () => {
@@ -28,7 +28,7 @@ export function useSetupRoles() {
         ELEMENT_NFT_ROLES.MINTER_ROLE,
         CONTRACTS.Alchemist.address,
       ],
-    });
+    } as any);
   };
 
   return {
