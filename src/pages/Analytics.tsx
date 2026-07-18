@@ -62,7 +62,7 @@ export default function Analytics() {
             Live Protocol Analytics
           </h1>
           <p className="text-muted-foreground mt-1 font-lato">
-            On-chain oracle data proving the live deflationary economics of the Guild Token.
+            On-chain price data proving the live deflationary economics of the Guild Token.
           </p>
         </div>
       </motion.div>
@@ -70,7 +70,7 @@ export default function Analytics() {
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Oracle Price Feed"
+          title="Price Feed"
           value={`${guildPerWeth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUILD / WETH`}
           subtitle="Live Uniswap V3 Pool Price"
           icon={TrendingUp}
