@@ -129,4 +129,4 @@ export const ARBITRUM_SEPOLIA_CHAIN = {
 export const BASE_SEPOLIA_CHAIN = ARBITRUM_SEPOLIA_CHAIN;
 
 // ── Deployment Block for Analytics ────────────────────────────────────────────
-export const DEPLOYMENT_BLOCK = 100000000n;
+export const DEPLOYMENT_BLOCK = 288201000n;
