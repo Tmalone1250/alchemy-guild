@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { createChart, AreaSeries, UTCTimestamp } from 'lightweight-charts';
 import { Activity } from 'lucide-react';
+type Timeframe = '24H' | '7D' | '30D' | '90D' | 'YTD';
+
+const timeframes: { label: Timeframe; hours: number }[] = [
+  { label: '24H', hours: 24 },
+  { label: '7D', hours: 24 * 7 },
+  { label: '30D', hours: 24 * 30 },
+  { label: '90D', hours: 24 * 90 },
+  { label: 'YTD', hours: 24 * 180 }, 
+];
+
 export default function PriceChart({ totalBurned }: { totalBurned: number }) {
+  const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>('24H');
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,20 +61,41 @@ export default function PriceChart({ totalBurned }: { totalBurned: number }) {
     
     // Simulate historical data leading up to the current burn value
     const generateHistory = () => {
-      // 520 tokens burned * 0.001 = +$0.52 added to the price
-      const burnBonus = (totalBurned || 0) * 0.001; 
-      const targetPrice = basePrice + burnBonus;
+      const burnBonus = (totalBurned || 0) * 0.001;
+      const targetPrice = 0.25 + burnBonus;
+      
+      const tfConfig = timeframes.find(t => t.label === activeTimeframe) || timeframes[0];
+      const durationSecs = tfConfig.hours * 3600;
       
       const nowSecs = Math.floor(Date.now() / 1000);
-      const startSecs = nowSecs - 1200; 
-      const historyData: { time: UTCTimestamp; value: number }[] = [];
+      const startSecs = nowSecs - durationSecs; 
       
-      for (let i = 0; i < 120; i++) {
-        const time = (startSecs + i * 10) as UTCTimestamp;
-        const progress = i / 120;
-        const randomFactor = (Math.random() - 0.5) * 0.02; // +/- 2 cents noise
-        const value = basePrice + (burnBonus * progress) + randomFactor;
-        historyData.push({ time, value });
+      // INCEPTION: Set protocol launch to exactly 24 hours ago. 
+      // Anything before this timestamp will render as $0.00.
+      const INCEPTION_SECS = nowSecs - (24 * 3600); 
+
+      const historyData: { time: UTCTimestamp; value: number }[] = [];
+      const dataPoints = 150; 
+      
+      for (let i = 0; i < dataPoints; i++) {
+        const time = (startSecs + i * (durationSecs / dataPoints)) as UTCTimestamp;
+        
+        if (time < INCEPTION_SECS) {
+          // Pre-inception: Token did not exist
+          historyData.push({ time, value: 0 });
+        } else {
+          // Post-inception: Calculate growth strictly from launch to now
+          const activeDuration = nowSecs - INCEPTION_SECS;
+          const timeSinceInception = time - INCEPTION_SECS;
+          // Protect against divide-by-zero if somehow nowSecs === INCEPTION_SECS
+          const progress = activeDuration > 0 ? (timeSinceInception / activeDuration) : 1;
+          
+          const curvedProgress = Math.pow(progress, 1.2); 
+          const randomFactor = (Math.random() - 0.5) * 0.015; // Natural market noise
+          
+          const value = 0.25 + (burnBonus * curvedProgress) + randomFactor;
+          historyData.push({ time, value: Math.max(0, value) }); // Ensure it never dips below 0
+        }
       }
       
       areaSeries.setData(historyData);
@@ -102,7 +134,7 @@ export default function PriceChart({ totalBurned }: { totalBurned: number }) {
       resizeObserver.disconnect();
       chart.remove();
     };
-  }, []);
+  }, [totalBurned, activeTimeframe]);
 
   return (
     <div className="glass-panel p-6 border border-primary/20 bg-black/60 rounded-xl space-y-4">
@@ -116,10 +148,29 @@ export default function PriceChart({ totalBurned }: { totalBurned: number }) {
             <p className="text-xs text-muted-foreground">Real-time price movements</p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-sm text-muted-foreground font-lato">Live Price</div>
-          <div className="text-2xl font-bold font-mono text-gold-gradient">
-            {currentPrice !== null ? `$${currentPrice.toFixed(2)} USD` : 'Loading...'}
+        <div className="flex items-end gap-6">
+          {/* New Timeframe Selectors */}
+          <div className="flex bg-white/[0.02] border border-white/[0.05] rounded-lg p-1">
+            {timeframes.map((tf) => (
+              <button
+                key={tf.label}
+                onClick={() => setActiveTimeframe(tf.label)}
+                className={`px-3 py-1 text-xs font-mono rounded-md transition-colors ${
+                  activeTimeframe === tf.label 
+                    ? 'bg-[#d4af37]/20 text-[#d4af37] border border-[#d4af37]/30' 
+                    : 'text-muted-foreground hover:text-white'
+                }`}
+              >
+                {tf.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="text-right">
+            <div className="text-sm text-muted-foreground font-lato">Live Price</div>
+            <div className="text-2xl font-bold font-mono text-gold-gradient">
+              {currentPrice !== null ? `$${currentPrice.toFixed(2)} USD` : 'Loading...'}
+            </div>
           </div>
         </div>
       </div>

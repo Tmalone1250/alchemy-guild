@@ -72,7 +72,7 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
         _tokenIdCounter++;
 
         if (guildDistributor != address(0)) {
-            IGuildDistributor(guildDistributor).rewardUser(msg.sender, 10 * 1e18);
+            IGuildDistributor(guildDistributor).rewardUser(msg.sender, 1 ether);
         }
     }
     

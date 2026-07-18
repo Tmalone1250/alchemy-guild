@@ -1,0 +1,11 @@
+
+🔍 Checking Smart Account: 0x49709cFC7B8F48B45693ca066430D983aE452c3D
+   Vault Address: 0xC9BF61d81b65992f638Ea044384204D19383667c
+   🖼️  NFT Balance: 1
+
+   📋 Owned Tokens:
+   - Token ID: 21
+     Tier: 1
+     Approved To: 0x0000000000000000000000000000000000000000
+     Appr. All:   true
+     ✅ Approval VALID for Vault.

@@ -1,0 +1,21 @@
+
+🔍 Vault State Diagnostics: 0xC9BF61d81b65992f638Ea044384204D19383667c
+   👑 Owner: 0xA4ECcEde595f5cbEC72717591e16FA3C7Fe55D66
+   🏷️  Last Position ID: 223658
+   ⚖️  Total Weight:     0
+   💰 Unclaimed Yield:  0.0 USDC
+
+   🧐 querying Position #223658 on PM...
+      ✅ Position Found!
+      Liquidity: 363248413189413
+      TokensOwed0 (USDC): 0
+      TokensOwed1 (WETH): 0
+      Ticks: [185280, 186240]
+
+   🔓 Allowances to PositionManager (0x1238536071E1c677A632429e3655c799b22cDA52):
+      USDC: 15262066182
+      WETH: 19
+
+   💰 Vault Balances:
+      USDC: 19262.066182
+      WETH: 0.000000000000000019

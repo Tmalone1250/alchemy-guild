@@ -131,8 +131,8 @@ All core contracts and TEE enclaves are deployed and verified on **Arbitrum Sepo
 | :--- | :--- | :--- |
 | **YieldVault** | [`0x2Ed51bD2CD7148197C8aBbF53D171e1c8bb41CdC`](https://sepolia.arbiscan.io/address/0x2Ed51bD2CD7148197C8aBbF53D171e1c8bb41CdC) | Core Bank, Uniswap V3 Position Manager, & Fee Harvester |
 | **GuildToken (GUILD)** | [`0x39514660f913E651E098c710b03943bA5F451535`](https://sepolia.arbiscan.io/address/0x39514660f913E651E098c710b03943bA5F451535) | Native ERC-20 Governance Token (`100,000,000 GUILD` cap) |
-| **cGUILD (iExec Nox Wrapper)** | [`0xD32B7929146E484eac13e59D0a0Ca116707CD286`](https://sepolia.arbiscan.io/address/0xD32B7929146E484eac13e59D0a0Ca116707CD286) | Confidential TEE Wrapper (`euint256` balances & burn/spend logic) |
-| **GuildDAO** | [`0x11feE910D4d026ca7CC951ee0836a2094b898aC7`](https://sepolia.arbiscan.io/address/0x11feE910D4d026ca7CC951ee0836a2094b898aC7) | Enclave Governance Engine (`createProposal`, `castVote`, `execute`) |
+| **cGUILD (iExec Nox Wrapper)** | [`0xA6efeeBD751796031968Fb1F5EBdB373BCDC3e45`](https://sepolia.arbiscan.io/address/0xA6efeeBD751796031968Fb1F5EBdB373BCDC3e45) | Confidential TEE Wrapper (`euint256` balances & burn/spend logic) |
+| **GuildDAO** | [`0x3c83c1C5C5607d91A562b70cC281b08dfdaB422d`](https://sepolia.arbiscan.io/address/0x3c83c1C5C5607d91A562b70cC281b08dfdaB422d) | Enclave Governance Engine (`createProposal`, `castVote`, `execute`) |
 | **ElementNFT** | [`0x60c28DcF0c32bd305b49a3dCcABC1A4a10BdcBc3`](https://sepolia.arbiscan.io/address/0x60c28DcF0c32bd305b49a3dCcABC1A4a10BdcBc3) | ERC-721 Collection (`Tier I`, `II`, `III` elemental attributes) |
 | **Alchemist** | [`0xB20fCfFa104Ff37eA2ba3df54AC55379D4167765`](https://sepolia.arbiscan.io/address/0xB20fCfFa104Ff37eA2ba3df54AC55379D4167765) | Crafting & Transmutation Engine (3-to-1 burn mechanics) |
 | **GuildDistributor** | [`0x1d64980f2Dc19e7A38666e23Fcb443529222cdf6`](https://sepolia.arbiscan.io/address/0x1d64980f2Dc19e7A38666e23Fcb443529222cdf6) | Pro-rata USDC Yield Streamer for NFT Stakers |

@@ -9,8 +9,8 @@ import { NFT } from '@/types/nft';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 // import { useAccount } from 'wagmi';
-import { useAlchemist, useUserNFTs } from '@/hooks/useContracts';
-
+import { useAlchemist, useUserNFTs, useApproveNFT, useNFTApproval } from '@/hooks/useContracts';
+import { CONTRACTS } from '@/config/contracts';
 
 const RECIPES = [
   { inputs: ['Water', 'Lightning', 'Lightning'], output: 'Plasma', outputTier: 2 },
@@ -28,18 +28,29 @@ const RECIPES = [
 ];
 
 import { useSmartAccount } from '@/hooks/useSmartAccount';
+import { useGuildOracle } from '@/hooks/useGuildOracle';
 
 export default function Lab() {
   const { smartAccountAddress } = useSmartAccount();
   const { nfts, isLoading } = useUserNFTs(smartAccountAddress);
+  const { guildBurned } = useGuildOracle();
+
+  const currentPrice = 0.25 + (guildBurned * 0.001);
+  const dynamicRewardT2 = 5.00 / currentPrice;
+  const dynamicRewardT3 = 25.00 / currentPrice;
+
   const [selectedSlots, setSelectedSlots] = useState<(NFT | null)[]>([null, null, null]);
   const [showSelector, setShowSelector] = useState<number | null>(null);
   const [showRecipes, setShowRecipes] = useState(false);
   const { craft, isPending, isConfirming, isSuccess, error } = useAlchemist();
 
+  const { isApprovedForAll } = useNFTApproval(smartAccountAddress || '', CONTRACTS.Alchemist.address);
+  const { setApprovalForAll, isPending: isApprovePending, isConfirming: isApproveConfirming } = useApproveNFT();
+
   const availableNFTs = nfts.filter((nft) => !nft.staked);
 
   const canCraft = selectedSlots.every((slot) => slot !== null);
+  const isNeedsApproval = !isApprovedForAll;
 
   const elementToNumber: Record<string, number> = {
     'Earth': 0, 'Water': 1, 'Wind': 2, 'Fire': 3, 'Ice': 4, 'Lightning': 5,
@@ -79,6 +90,21 @@ export default function Lab() {
     setSelectedSlots(newSlots);
   };
 
+  const handleApprove = async () => {
+    try {
+      toast.loading('Approving Alchemist...', { id: 'approve' });
+      await setApprovalForAll(CONTRACTS.Alchemist.address, true);
+      toast.success('Approval successful! You can now transmute.', { id: 'approve' });
+    } catch (err: any) {
+      console.error('Approval error:', err);
+      if (err.message?.includes('User rejected')) {
+        toast.error('Approval rejected', { id: 'approve' });
+      } else {
+        toast.error('Approval failed', { id: 'approve' });
+      }
+    }
+  };
+
   const handleCraft = async () => {
     if (!canCraft) return;
 
@@ -107,11 +133,13 @@ export default function Lab() {
   useEffect(() => {
     if (isSuccess) {
       console.log('Lab: isSuccess triggered. Transmutation complete!');
-      const rewardText = recipeOutput?.outputTier === 3 ? '+250 GUILD High Alchemist Reward' : '+50 GUILD Alchemy Bonus';
-      toast.success(`Transmutation complete! New Element created! (${rewardText} Granted)`, { id: 'craft', duration: 6000 });
+      const rewardText = recipeOutput?.outputTier === 3 
+        ? `+${dynamicRewardT3.toFixed(2)} GUILD High Alchemist Reward ($25.00 Subsidy)` 
+        : `+${dynamicRewardT2.toFixed(2)} GUILD Alchemy Bonus ($5.00 Subsidy)`;
+      toast.success(`Transmutation complete! New Element created! (${rewardText})`, { id: 'craft', duration: 6000 });
       setSelectedSlots([null, null, null]);
     }
-  }, [isSuccess, recipeOutput]);
+  }, [isSuccess, recipeOutput, dynamicRewardT2, dynamicRewardT3]);
 
   useEffect(() => {
     if (error) {
@@ -276,7 +304,9 @@ export default function Lab() {
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/40 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 gold-glow animate-pulse">
               <Sparkles className="w-4 h-4 text-primary" />
               <span className="text-sm font-semibold text-primary">
-                Transmute-to-Earn: {recipeOutput.outputTier === 3 ? '+250 GUILD High Alchemist Reward' : '+50 GUILD Alchemy Bonus'}
+                Transmute-to-Earn: {recipeOutput.outputTier === 3 
+                  ? `+${dynamicRewardT3.toFixed(2)} GUILD High Alchemist Reward ($25.00 Subsidy)` 
+                  : `+${dynamicRewardT2.toFixed(2)} GUILD Alchemy Bonus ($5.00 Subsidy)`}
               </span>
             </div>
           </motion.div>
@@ -300,17 +330,22 @@ export default function Lab() {
         <div className="mt-4 flex justify-center">
           <Button
             size="lg"
-            disabled={!canCraft || !recipeOutput || isPending || isConfirming}
-            onClick={handleCraft}
+            disabled={!canCraft || !recipeOutput || isPending || isConfirming || isApprovePending || isApproveConfirming}
+            onClick={isNeedsApproval ? handleApprove : handleCraft}
             className={cn(
               'px-12',
               canCraft && recipeOutput && 'animate-glow'
             )}
           >
-            {isPending || isConfirming ? (
+            {isPending || isConfirming || isApprovePending || isApproveConfirming ? (
               <span className="flex items-center gap-2">
                 <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                {isPending ? 'Confirm in wallet...' : 'Transmuting...'}
+                {isApprovePending || isApproveConfirming ? 'Approving...' : isPending ? 'Confirm in wallet...' : 'Transmuting...'}
+              </span>
+            ) : isNeedsApproval ? (
+              <span className="flex items-center gap-2">
+                <FlaskConical className="w-5 h-5" />
+                Approve Alchemist
               </span>
             ) : (
               <span className="flex items-center gap-2">

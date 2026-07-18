@@ -12,6 +12,8 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
+import { useAccount } from 'wagmi';
+import { useSmartAccount } from '@/hooks/useSmartAccount';
 import { useProtocolStats } from '@/hooks/useProtocolStats';
 import { useGuildOracle } from '@/hooks/useGuildOracle';
 import { TIERS } from '@/config/contracts';
@@ -22,10 +24,15 @@ export default function Analytics() {
     uniqueHolders,
     totalYieldClaimed,
     stakingByTier,
+    userStakingByTier,
     yieldHistory,
     isLoading: isStatsLoading,
     tvl
   } = useProtocolStats();
+
+  const { address } = useAccount();
+  const { smartAccountAddress } = useSmartAccount();
+  const targetAddress = smartAccountAddress || address;
 
   const {
     guildBurned,
@@ -36,10 +43,13 @@ export default function Analytics() {
 
   const isLoading = isStatsLoading || isOracleLoading;
 
-  const stakingData = TIERS.map(tier => ({
-    name: tier.name,
-    staked: stakingByTier[tier.id] || 0,
-  }));
+  const stakingData = TIERS.map(tier => {
+    const userCount = targetAddress ? (userStakingByTier[tier.id]?.[targetAddress.toLowerCase()] || 0) : 0;
+    return {
+      name: tier.name,
+      staked: userCount,
+    };
+  });
 
   if (isLoading) {
     return (

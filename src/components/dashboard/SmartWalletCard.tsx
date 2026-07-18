@@ -4,7 +4,7 @@ import { Wallet, ArrowDownCircle, ArrowUpCircle, Copy, Check, ExternalLink } fro
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useSmartAccount } from '@/hooks/useSmartAccount';
-import { useBalance, useSendTransaction, useAccount, useReadContract, useWriteContract } from 'wagmi';
+import { useBalance, useSendTransaction, useAccount, useReadContract, useWriteContract, usePublicClient } from 'wagmi';
 import {
     Select,
     SelectContent,
@@ -33,6 +33,8 @@ export function SmartWalletCard() {
             refetchInterval: 5000,
         }
     });
+
+    const publicClient = usePublicClient();
 
     const { data: usdcBalance, refetch: refetchUsdcBalance } = useReadContract({
         address: CONTRACTS.USDC.address,
@@ -114,12 +116,20 @@ export function SmartWalletCard() {
                     toast.error('Please connect your wallet first');
                     return;
                 }
+                
+                // Fetch fee data and bump by 20% to avoid baseFee errors on L2s
+                const feeData = await publicClient?.estimateFeesPerGas();
+                const maxFeePerGas = feeData?.maxFeePerGas ? (feeData.maxFeePerGas * 120n) / 100n : undefined;
+                const maxPriorityFeePerGas = feeData?.maxPriorityFeePerGas ? (feeData.maxPriorityFeePerGas * 120n) / 100n : undefined;
+
                 if (token === 'ETH') {
                     const weiAmount = parseEther(amount);
                     toast.loading('Confirm ETH deposit in your wallet...', { id: 'wallet-action' });
                     await sendTransactionAsync({
                         to: smartAccountAddress,
                         value: weiAmount,
+                        maxFeePerGas,
+                        maxPriorityFeePerGas,
                     });
                 } else {
                     const tokenAddr = token === 'USDC' ? CONTRACTS.USDC.address : CONTRACTS.GuildToken.address;
@@ -135,7 +145,9 @@ export function SmartWalletCard() {
                             outputs: [{ name: '', type: 'bool' }]
                         }],
                         functionName: 'transfer',
-                        args: [smartAccountAddress, tokenAmount]
+                        args: [smartAccountAddress, tokenAmount],
+                        maxFeePerGas,
+                        maxPriorityFeePerGas,
                     } as any);
                 }
                 toast.success('Deposit initiated! Funds will arrive shortly.', { id: 'wallet-action' });

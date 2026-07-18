@@ -8,6 +8,7 @@ export interface ProtocolStats {
     totalStaked: number;
     totalYieldClaimed: string;
     stakingByTier: { [key: number]: number };
+    userStakingByTier: { [key: number]: { [user: string]: number } };
     yieldHistory: { date: string; value: number }[];
     isLoading: boolean;
     volume24h: string;
@@ -43,6 +44,7 @@ export function useProtocolStats() {
         totalStaked: 0,
         totalYieldClaimed: '0',
         stakingByTier: {},
+        userStakingByTier: {},
         yieldHistory: [],
         isLoading: true,
         volume24h: '0',
@@ -160,23 +162,41 @@ export function useProtocolStats() {
                 }
                 const uniqueAddresses = new Set(owners.values());
 
-                const stakedTokens = new Map<string, number>();
-                if (stakedLogs) {
-                    stakedLogs.forEach(log => {
-                        const { tokenId, tier } = log.args;
-                        if (tokenId !== undefined && tier !== undefined) stakedTokens.set(tokenId.toString(), Number(tier));
-                    });
-                }
-                if (unstakedLogs) {
-                    unstakedLogs.forEach(log => {
-                        const { tokenId } = log.args;
-                        if (tokenId !== undefined) stakedTokens.delete(tokenId.toString());
-                    });
-                }
+                const stakedTokens = new Map<string, { tier: number, user: string }>();
+                
+                // Combine and sort staked and unstaked logs chronologically
+                const allStakingEvents = [
+                    ...(stakedLogs || []).map(l => ({ ...l, type: 'STAKED' as const })),
+                    ...(unstakedLogs || []).map(l => ({ ...l, type: 'UNSTAKED' as const }))
+                ].sort((a, b) => {
+                    if (a.blockNumber !== b.blockNumber) return Number(a.blockNumber) - Number(b.blockNumber);
+                    if (a.transactionIndex !== b.transactionIndex) return Number(a.transactionIndex) - Number(b.transactionIndex);
+                    return Number(a.logIndex) - Number(b.logIndex);
+                });
+
+                allStakingEvents.forEach(log => {
+                    if (log.type === 'STAKED') {
+                        const { user, tokenId, tier } = (log as any).args;
+                        if (tokenId !== undefined && tier !== undefined && user) {
+                            stakedTokens.set(tokenId.toString(), { tier: Number(tier), user: (user as string).toLowerCase() });
+                        }
+                    } else if (log.type === 'UNSTAKED') {
+                        const { tokenId } = (log as any).args;
+                        if (tokenId !== undefined) {
+                            stakedTokens.delete(tokenId.toString());
+                        }
+                    }
+                });
 
                 const stakingByTier: { [key: number]: number } = { 1: 0, 2: 0, 3: 0 };
-                stakedTokens.forEach((tier) => {
-                    stakingByTier[tier] = (stakingByTier[tier] || 0) + 1;
+                const userStakingByTier: { [key: number]: { [user: string]: number } } = { 1: {}, 2: {}, 3: {} };
+                
+                stakedTokens.forEach((data) => {
+                    stakingByTier[data.tier] = (stakingByTier[data.tier] || 0) + 1;
+                    if (!userStakingByTier[data.tier][data.user]) {
+                        userStakingByTier[data.tier][data.user] = 0;
+                    }
+                    userStakingByTier[data.tier][data.user] += 1;
                 });
 
                 let totalYield = BigInt(0);
@@ -236,6 +256,7 @@ export function useProtocolStats() {
                     totalStaked: stakedTokens.size,
                     totalYieldClaimed: (Number(totalYield) / 1e6).toFixed(6),
                     stakingByTier,
+                    userStakingByTier,
                     yieldHistory: sampledHistory.length > 0 ? sampledHistory : [{ date: 'Start', value: 0 }],
                     isLoading: false,
                     volume24h: formatEther(volumeWeth),

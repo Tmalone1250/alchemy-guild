@@ -8,6 +8,8 @@ import { toast } from 'sonner';
 import { useElementNFT } from '@/hooks/useContracts';
 import { useAccount } from 'wagmi';
 
+import { useGuildOracle } from '@/hooks/useGuildOracle';
+
 const elementIcons = {
   Earth: Mountain,
   Fire: Flame,
@@ -30,6 +32,10 @@ export function MintWidget() {
   const [selectedElement, setSelectedElement] = useState<ElementType | null>(null);
   const { publicMint, isPending, isConfirming, isSuccess, error } = useElementNFT();
   const { address } = useAccount();
+  const { guildBurned } = useGuildOracle();
+
+  const currentPrice = 0.25 + (guildBurned * 0.001);
+  const dynamicReward = 1.00 / currentPrice;
 
   const handleMint = async () => {
     if (!selectedElement) return;
@@ -56,10 +62,10 @@ export function MintWidget() {
   useEffect(() => {
     if (isSuccess) {
       console.log('MintWidget: isSuccess triggered. Successfully minted:', selectedElement);
-      toast.success(`Successfully minted ${selectedElement} Element! (+10 GUILD Subsidy Granted)`, { id: 'mint' });
+      toast.success(`Successfully minted ${selectedElement} Element! (+${dynamicReward.toFixed(2)} GUILD Subsidy Granted)`, { id: 'mint' });
       setSelectedElement(null);
     }
-  }, [isSuccess, selectedElement]);
+  }, [isSuccess, selectedElement, dynamicReward]);
 
   useEffect(() => {
     if (error) {
@@ -91,7 +97,7 @@ export function MintWidget() {
         <div className="flex items-center justify-center">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/20 text-primary border border-primary/40 animate-pulse">
             <Sparkles className="w-3.5 h-3.5" />
-            Includes +10 GUILD Governance Subsidy
+            + GUILD Subsidy: {dynamicReward.toFixed(2)} GUILD
           </span>
         </div>
       </div>

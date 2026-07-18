@@ -29,7 +29,7 @@ cache
 .env
 
 broadcast
-scripts
+
 deployment
 manager
 whitelist

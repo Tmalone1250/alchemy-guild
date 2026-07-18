@@ -1,0 +1,9 @@
+🔍 SIMULATION RESULTS
+🔍 Simulating Direct Mint (User Wallet)
+   Tick: 184729, Spacing: 60
+   Range: [184180, 185180]
+   Approving PM...
+   ✅ Approved.
+   Calling Mint...
+   🚀 Tx Sent: 0xe3e0bc45fb5a41df92ec6f008b38ee3ec5be6d6202d670d33445cdbaeca873ec
+   ✅ Direct Mint SUCCESS!

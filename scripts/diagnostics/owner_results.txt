@@ -1,0 +1,8 @@
+
+🔍 Checking Owner of Check Owner of YieldVault: 0x18F0520B6155AF434daD62b2CF1aec198B458F3e
+   Signer (You):  0x4c5439Cf1fE5d9E701869813B0281087e7cB2aa2
+   Actual Owner:  0xA4ECcEde595f5cbEC72717591e16FA3C7Fe55D66
+
+❌ MISMATCH! You are NOT the owner.
+   The contract was deployed by a different wallet.
+   Please check if your WSL .env matches your Windows .env or if Forge used a different key.

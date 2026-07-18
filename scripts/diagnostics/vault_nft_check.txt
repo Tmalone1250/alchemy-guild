@@ -1,0 +1,8 @@
+
+🔍 Checking Vault Configuration
+   Vault: 0xC9BF61d81b65992f638Ea044384204D19383667c
+   I_ELEMENT_NFT: 0x0000000000000000000000000000000000000000
+   Expected:      0x2BFbf65eFEbEae93cbBEb791ed93fF8DEb4E02b9
+
+❌ CRITICAL: NFT Address is ZERO! 'stake()' will fail.
+   The deployment script missed the 'setElementNFT' step.

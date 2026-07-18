@@ -1,0 +1,12 @@
+🔍 DIAGNOSTIC RESULTS 🔍
+
+🏊 Pool Details (0x6Ce0896eAE6D4BD668fDe41BB784548fb8F59b50):
+   Fee:          3000 ✅ MATCHES
+   TickSpacing:  60
+   Current Tick: 184794
+
+🏦 Vault Balances (0x18F0520B6155AF434daD62b2CF1aec198B458F3e):
+   WETH: 0.1
+   USDC: 20000.0
+
+   ✅ Balances sufficient (non-zero).

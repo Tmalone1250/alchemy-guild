@@ -1,0 +1,12 @@
+
+🔍 Checking Bot Ownership for: 0xC9BF61d81b65992f638Ea044384204D19383667c
+   🤖 Bot Address:  0xA4ECcEde595f5cbEC72717591e16FA3C7Fe55D66
+   👑 Vault Owner:  0x4c5439Cf1fE5d9E701869813B0281087e7cB2aa2
+
+❌ MISMATCH! The Bot cannot call 'rebalance()'.
+
+🚀 ACTION REQUIRED:
+Run this command in your WSL / Forge terminal (where you deployed):
+---------------------------------------------------------------
+cast send 0xC9BF61d81b65992f638Ea044384204D19383667c "transferOwnership(address)" 0xA4ECcEde595f5cbEC72717591e16FA3C7Fe55D66 --rpc-url https://ethereum-sepolia-rpc.publicnode.com --private-key $PRIVATE_KEY
+---------------------------------------------------------------

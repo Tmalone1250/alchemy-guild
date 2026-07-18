@@ -162,7 +162,7 @@ contract AlchemistContract is AccessControl {
         );
 
         if (guildDistributor != address(0)) {
-            uint256 rewardAmount = recepie.resultTier == 3 ? 250 * 1e18 : 50 * 1e18;
+            uint256 rewardAmount = recepie.resultTier == 3 ? 25 ether : 5 ether;
             IGuildDistributor(guildDistributor).rewardUser(msg.sender, rewardAmount);
         }
     }

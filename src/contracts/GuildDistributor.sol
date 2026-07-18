@@ -8,6 +8,7 @@ contract GuildDistributor is Ownable {
     IERC20 public immutable guildToken;
     address public elementNFT;
     address public alchemist;
+    uint256 public guildPriceUSD = 0.77 ether;
 
     event RewardDistributed(address indexed user, uint256 amount);
     event RewardSkipped(address indexed user, uint256 amount, string reason);
@@ -35,6 +36,10 @@ contract GuildDistributor is Ownable {
         emit ContractsUpdated(_elementNFT, _alchemist);
     }
 
+    function setGuildPriceUSD(uint256 _newPrice) external onlyOwner {
+        guildPriceUSD = _newPrice;
+    }
+
     /**
      * @notice Distributes GUILD rewards to users when minting or crafting.
      * @dev Un-brickable safety check: if the distributor balance is lower than `amount`,
@@ -43,26 +48,28 @@ contract GuildDistributor is Ownable {
      */
     function rewardUser(
         address user,
-        uint256 amount
+        uint256 targetUsdValue
     ) external onlyAuthorized {
-        if (user == address(0) || amount == 0) {
+        if (user == address(0) || targetUsdValue == 0) {
             return;
         }
+
+        uint256 rewardAmount = (targetUsdValue * 1e18) / guildPriceUSD;
 
         uint256 balance = guildToken.balanceOf(address(this));
-        if (balance < amount) {
-            emit RewardSkipped(user, amount, "Insufficient distributor balance");
+        if (balance < rewardAmount) {
+            emit RewardSkipped(user, rewardAmount, "Insufficient distributor balance");
             return;
         }
 
-        try guildToken.transfer(user, amount) returns (bool success) {
+        try guildToken.transfer(user, rewardAmount) returns (bool success) {
             if (success) {
-                emit RewardDistributed(user, amount);
+                emit RewardDistributed(user, rewardAmount);
             } else {
-                emit RewardSkipped(user, amount, "Transfer returned false");
+                emit RewardSkipped(user, rewardAmount, "Transfer returned false");
             }
         } catch {
-            emit RewardSkipped(user, amount, "Transfer reverted");
+            emit RewardSkipped(user, rewardAmount, "Transfer reverted");
         }
     }
 }

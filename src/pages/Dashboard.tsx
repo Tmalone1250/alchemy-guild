@@ -6,11 +6,15 @@ import { SmartWalletCard } from '@/components/dashboard/SmartWalletCard';
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import { ActivityTable } from '@/components/dashboard/ActivityTable';
 import { useAccount, useReadContract } from 'wagmi';
-import { CONTRACTS } from '@/config/contracts';
+import { CONTRACTS, TIERS } from '@/config/contracts';
 import { ELEMENT_NFT_ABI, YIELD_VAULT_ABI } from '@/config/abis';
+import { useProtocolStats } from '@/hooks/useProtocolStats';
+import { useSmartAccount } from '@/hooks/useSmartAccount';
 
 export default function Dashboard() {
   const { address } = useAccount();
+  const { smartAccountAddress } = useSmartAccount();
+  const targetAddress = smartAccountAddress || address;
 
   const { data: totalSupply } = useReadContract({
     address: CONTRACTS.ElementNFT.address,
@@ -18,7 +22,7 @@ export default function Dashboard() {
     functionName: 'totalSupply',
   });
 
-  const { data: totalWeight } = useReadContract({
+  const { data: totalWeightGlobal } = useReadContract({
     address: CONTRACTS.YieldVault.address,
     abi: YIELD_VAULT_ABI,
     functionName: 'sTotalWeight',
@@ -29,6 +33,13 @@ export default function Dashboard() {
     abi: YIELD_VAULT_ABI,
     functionName: 'sAccRewardPerWeight',
   });
+
+  const { userStakingByTier } = useProtocolStats();
+
+  const userTotalWeight = targetAddress ? TIERS.reduce((acc, tier) => {
+    const count = userStakingByTier[tier.id]?.[targetAddress.toLowerCase()] || 0;
+    return acc + (count * tier.weight);
+  }, 0) : 0;
 
   // Read vault balances for TVL calculation
   const ERC20_ABI = [
@@ -95,8 +106,8 @@ export default function Dashboard() {
         />
         <StatCard
           title="Total Staked Weight"
-          value={totalWeight ? totalWeight.toString() : '0'}
-          subtitle="Staking power"
+          value={userTotalWeight.toString()}
+          subtitle={targetAddress ? "Your staking power" : "Connect to see weight"}
           icon={Layers}
         />
         <StatCard
