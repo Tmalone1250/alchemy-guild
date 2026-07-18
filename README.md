@@ -18,7 +18,7 @@
 
 ## 🌟 Executive Summary
 
-**Alchemy Guild** transforms liquidity provision into an immersive, gasless RPG economy while pioneering **Confidential TEE Governance** and **MEV-Protected Liquidity Rebalancing** using the **iExec Nox Protocol** on **Arbitrum Sepolia**.
+**Alchemy Guild** transforms liquidity provision into an immersive, gasless RPG economy while pioneering **Confidential TEE Governance** and **MEV-Protected Liquidity Rebalancing** using the **iExec Nox Protocol** on **Arbitrum Sepolia (Chain ID: 421614)**.
 
 Rather than navigating complex DeFi pool management, players **Mint, Craft, and Stake** elemental NFTs (`Lead`, `Silver`, `Gold`). Behind the scenes, the protocol manages underlying **Uniswap V3** liquidity, automatically harvesting real **USDC trading fees** and distributing yield directly to NFT stakers. Every transaction is 100% gasless via **ERC-4337 Smart Account Abstraction** sponsored by our self-sustaining protocol tax paymaster.
 
@@ -65,7 +65,7 @@ When a user clicks **Upvote** (`Support / FOR`) or **Downvote** (`Reject / AGAIN
 Once the voting period concludes (`block.timestamp > proposal.endTime`), the authorized **Intel TDX Enclave Runner (`0x1d...`)** calls `executeProposalResult`. The hardware enclave decrypts all collected vote handles inside isolated enclave memory, tallies exact FOR and AGAINST weights, and publishes the cryptographic `teeProof` along with the final resolved percentage split.
 
 ### 5. Autonomous AI Enclave Delegation (`Leno AI v2`)
-Members can delegate `O(1)` encrypted viewing rights (`cGUILD.grantAccess(delegateAgentAddress)`) directly to whitelisted autonomous agent enclaves (e.g., **Leno AI Enclave v2**: `0x5e4B...` / `0x98bF...`). The agent can securely analyze sentiment and cast programmatic votes inside the TEE without ever leaking voter balances or strategies to the mempool.
+Members can delegate `O(1)` encrypted viewing rights (`cGUILD.grantAccess(delegateAgentAddress)`) directly to whitelisted autonomous agent enclaves (e.g., **Leno AI Enclave v2**: `0x5e4B...` / `0x98bF...`). The agent can securely analyze sentiment and cast programmatic votes inside the TEE without ever leaking voter balances or strategies to the mempool using the AI Agent Master Key ![][image1] delegation scheme.
 
 ---
 
@@ -89,8 +89,22 @@ To increase yield share and rarity, players combine lower-tier NFTs into higher-
 ### 3. Staking & Real USDC Harvest (`YieldVault.sol` + `GuildDistributor.sol`)
 When players stake their elemental NFTs inside **The Vault**:
 - `YieldVault` tracks the user's total active weight versus the `globalTotalWeight`.
+- The user's pro-rata yield reward `$R_{user}$` is calculated as a function of their total staked NFT weight `$W_{user}$` against the global total weight of staked elements `$W_{global}$` and the accumulated fee pool `$F_{fees}$`:
+  
+  $$R_{user} = \frac{W_{user}}{W_{global}} \times F_{fees}$$
+  
 - As traders swap on Uniswap V3, real **USDC trading fees** accrue to the vault.
 - `YieldVault.harvestAndDistribute()` pushes **90% of all harvested USDC** into `GuildDistributor` for stakers to claim instantly, and routes **10%** to the **Protocol Tax Paymaster** to perpetually fund user gas.
+
+### 4. Dynamic Subsidy (Mint/Transmute-to-Earn)
+To reward users for participating in the economy, paying protocol fees triggers an instant **GUILD Subsidy** distributed directly from the Treasury Distributor:
+- **Minting (Tier I):** Claims a subsidy of **`+10` GUILD** tokens.
+- **Crafting Tier II:** Claims a subsidy of **`+50` GUILD** tokens.
+- **Crafting Tier III:** Claims a subsidy of **`+250` GUILD** tokens.
+
+Mathematically, the dynamic subsidy follows the function:
+
+$$\text{Subsidy} = \begin{cases} 10 \text{ GUILD} & \text{for Minting (Tier I Element)} \\ 50 \text{ GUILD} & \text{for Transmuting Tier II Element} \\ 250 \text{ GUILD} & \text{for Transmuting Tier III Element} \end{cases}$$
 
 ---
 
@@ -103,7 +117,7 @@ Alchemy Guild operates as a fully autonomous, self-sustaining financial machine 
    - When out of range, target ticks (`lowerTick`, `upperTick`) are **encrypted via iExec Nox** inside a confidential payload before triggering `YieldVault.rebalance(...)`. This ensures MEV searchers cannot sandwich the protocol's liquidity adjustments.
 2. **Tax Recycler (`recycle-paymaster-tax.ts`)**
    - Continuously sweeps the `10%` USDC protocol tax harvested from `YieldVault`.
-   - Executes optimal Uniswap V3 swaps from `USDC` $\rightarrow$ `ETH` and deposits directly into the **Alchemy / Pimlico Verifying Paymaster (`0xa992...`)** on Arbitrum Sepolia.
+   - Executes optimal Uniswap V3 swaps from `USDC` $\rightarrow$ `ETH` and deposits directly into the **Alchemy / Pimlico Verifying Paymaster (`0xa992...`)** on **Arbitrum Sepolia (Chain ID: 421614)**.
 3. **Organic Volume Simulator (`volume-bot.ts`)**
    - Simulates continuous, realistic retail trading volume across the `WETH/USDC` Uniswap V3 pool on Arbitrum Sepolia, guaranteeing steady, organic USDC fee accrual for NFT stakers.
 
@@ -111,10 +125,10 @@ Alchemy Guild operates as a fully autonomous, self-sustaining financial machine 
 
 ## 🏗️ Verified Contract Addresses (Arbitrum Sepolia)
 
-All core contracts and TEE enclaves are deployed and verified on **Arbitrum Sepolia (`Chain ID: 421614`)**:
+All core contracts and TEE enclaves are deployed and verified on **Arbitrum Sepolia (Chain ID: 421614)**:
 
 | Contract Name | Verified Address | Description |
-| :--- | :---: | :--- |
+| :--- | :--- | :--- |
 | **YieldVault** | [`0x2Ed51bD2CD7148197C8aBbF53D171e1c8bb41CdC`](https://sepolia.arbiscan.io/address/0x2Ed51bD2CD7148197C8aBbF53D171e1c8bb41CdC) | Core Bank, Uniswap V3 Position Manager, & Fee Harvester |
 | **GuildToken (GUILD)** | [`0x39514660f913E651E098c710b03943bA5F451535`](https://sepolia.arbiscan.io/address/0x39514660f913E651E098c710b03943bA5F451535) | Native ERC-20 Governance Token (`100,000,000 GUILD` cap) |
 | **cGUILD (iExec Nox Wrapper)** | [`0xD32B7929146E484eac13e59D0a0Ca116707CD286`](https://sepolia.arbiscan.io/address/0xD32B7929146E484eac13e59D0a0Ca116707CD286) | Confidential TEE Wrapper (`euint256` balances & burn/spend logic) |
@@ -204,3 +218,5 @@ npx tsx recycle-paymaster-tax.ts
   <h3><b>Transmuting Base Assets & Plaintext State into Gold & Confidentiality.</b></h3>
   <p>Built with ❤️ for the WTF!! Summer Hackathon & Metana Capstone.</p>
 </div>
+
+[image1]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACsAAAAaCAYAAAAue6XIAAAC4klEQVR4Xu2WTYhNYRjHrxkfIURyud8fo9ENoy7ZSINIElaSlGShUIpENlYkG4sZZaFJXSnR5GsjQ4ksyEoU0awwLIyPZkFp/B7znts7f/fOPerexdT91dO55/9/zvM+73vOee+JRJqMA4rF4qR0On09n88n1atGKpWaTdxoa2ubqV5DodHzmUxmm+oB+FnVDJpdR9zlZ6t6DYFGdhK9qre3t89gAp14F4lB9QPwesg7rnpN7JZw8QniCgVucnxAPGb2xyKVZ9+C/57cjb7I+TL0T1aHeEV89X0fcldabiKRmKpeVWhoFxe+4cIjnLYEeiwWm4v2nOhjMlO8SyLJZHIL+lt+TvB1H/zbYzVr4PcTB1WvCIlniY80u0g9A28tMcyETopeIrp8TQnTLHUvkXNf9X8gaa81ks1mN6gXYCdKzm/ima9z/rrWioRp1vXwTfVR2EqSNEQ8Uc8nGo1OtwkRnwMtl8vNMo0aW/1cJUyzLNRqV2u+emVI6HJJ+9TzCYoRjzytwzTz/FwlZLNLrRbvwGL1AlpJGHBNVNwHA5jMGZdXfj4pvMI03uIlfq7imh3zFnOXUlaLcTrV+wtv+TTXwDCnE9UPsFuTHnlUfvmNeSvb4ecrYZqNx+MJq2V/EuqVIeGFW52qexx+t5v1qI3b/lpds2Eeg++q+9jtt1ocl6tXhoRTlkRxUs9A3+9mfEG94KXD26yej2v2h+o+1FhltViAeeqVcY/CO+Kl/yYWCoXJFDiN/MpM4HKmy6eP1k3dIdR9y7hFDNjn1Ahh7d9rbaarCbYwy4DniYWbkL7bE8SrHo8QCzffB7yEuq85jNcfq4Q3airn4Yo3bKmo+ejdj3lK9rjDAHlsR+0RU73+gzlNih+p1xX34DLBa29ULC3dhITU+RMbYkeoGAx0g7qgeFvsusGdW9UZhn4m9DLpejVpw3RqipHpDsX2aQa+xT8bUq4a9hFzTZzuSek2ajHf+AI8lyAtaeSvZAAAAAElFTkSuQmCC>
