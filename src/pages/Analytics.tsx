@@ -28,7 +28,6 @@ export default function Analytics() {
   } = useProtocolStats();
 
   const {
-    guildPerWeth,
     guildBurned,
     usdcDepth,
     wethDepth,
@@ -70,13 +69,18 @@ export default function Analytics() {
 
       {/* Quick Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Price Feed"
-          value={`${guildPerWeth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} GUILD / WETH`}
-          subtitle="Live Uniswap V3 Pool Price"
-          icon={TrendingUp}
-          variant="gold"
-        />
+        <div className="border border-[#d4af37]/30 bg-black p-6 rounded-xl">
+          <p className="text-sm text-gray-400 font-medium">Spot Price</p>
+          
+          <h3 className="text-3xl font-bold text-[#d4af37] tracking-tight mt-2">
+            {/* Base $0.25 + (Burned * 0.001) */}
+            ${(0.25 + (guildBurned * 0.001)).toFixed(2)} USD
+          </h3>
+          
+          <p className="text-xs text-emerald-500/80 mt-1 font-mono">
+            + ${(guildBurned * 0.001).toFixed(2)} Deflationary Premium
+          </p>
+        </div>
         <StatCard
           title="Total GUILD Burned"
           value={`${guildBurned.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} GUILD`}
@@ -103,7 +107,7 @@ export default function Analytics() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Live TradingView Price Chart */}
         <div className="lg:col-span-2">
-          <PriceChart />
+          <PriceChart totalBurned={guildBurned} />
         </div>
 
         {/* Protocol-Owned Liquidity (POL) Depth */}
