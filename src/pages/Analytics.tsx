@@ -15,6 +15,7 @@ import {
 import { useProtocolStats } from '@/hooks/useProtocolStats';
 import { useGuildOracle } from '@/hooks/useGuildOracle';
 import { TIERS } from '@/config/contracts';
+import PriceChart from '@/components/dashboard/PriceChart';
 
 export default function Analytics() {
   const {
@@ -100,6 +101,11 @@ export default function Analytics() {
 
       {/* Deep-Dive Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Live TradingView Price Chart */}
+        <div className="lg:col-span-2">
+          <PriceChart />
+        </div>
+
         {/* Protocol-Owned Liquidity (POL) Depth */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -148,13 +154,16 @@ export default function Analytics() {
             </div>
           </div>
         </motion.div>
+      </div>
 
+      {/* Yield & Staking Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Yield History Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="glass-panel p-6 col-span-1 lg:col-span-2 border border-primary/20 bg-black/60 rounded-xl"
+          className="glass-panel p-6 lg:col-span-2 border border-primary/20 bg-black/60 rounded-xl"
         >
           <h3 className="text-lg font-semibold text-foreground font-cinzel mb-6">Cumulative Yield Distributed</h3>
           <div className="h-72">
@@ -193,10 +202,8 @@ export default function Analytics() {
             </ResponsiveContainer>
           </div>
         </motion.div>
-      </div>
 
-      {/* Staking Distribution Chart */}
-      <div className="grid grid-cols-1 gap-6">
+        {/* Staked by Tier Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
