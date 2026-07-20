@@ -68,39 +68,45 @@ export default function PriceChart({ totalBurned }: { totalBurned: number }) {
       const durationSecs = tfConfig.hours * 3600;
       
       const nowSecs = Math.floor(Date.now() / 1000);
-      const startSecs = nowSecs - durationSecs; 
       
-      // INCEPTION: Set protocol launch to exactly 24 hours ago. 
-      // Anything before this timestamp will render as $0.00.
-      const INCEPTION_SECS = nowSecs - (24 * 3600); 
+      // INCEPTION: Token deployed July 15, 2026
+      const INCEPTION_SECS = Math.floor(new Date('2026-07-15T00:00:00Z').getTime() / 1000); 
+      
+      // Ensure the chart doesn't render time before the token actually existed
+      const startSecs = Math.max(nowSecs - durationSecs, INCEPTION_SECS);
+      const activeDuration = nowSecs - startSecs;
 
       const historyData: { time: UTCTimestamp; value: number }[] = [];
       const dataPoints = 150; 
       
-      for (let i = 0; i < dataPoints; i++) {
-        const time = (startSecs + i * (durationSecs / dataPoints)) as UTCTimestamp;
-        
-        if (time < INCEPTION_SECS) {
-          // Pre-inception: Token did not exist
-          historyData.push({ time, value: 0 });
-        } else {
-          // Post-inception: Calculate growth strictly from launch to now
-          const activeDuration = nowSecs - INCEPTION_SECS;
-          const timeSinceInception = time - INCEPTION_SECS;
-          // Protect against divide-by-zero if somehow nowSecs === INCEPTION_SECS
-          const progress = activeDuration > 0 ? (timeSinceInception / activeDuration) : 1;
+      if (activeDuration > 0) {
+        for (let i = 0; i <= dataPoints; i++) {
+          const time = (startSecs + i * (activeDuration / dataPoints)) as UTCTimestamp;
           
-          const curvedProgress = Math.pow(progress, 1.2); 
-          const randomFactor = (Math.random() - 0.5) * 0.015; // Natural market noise
+          // Progress strictly relative to the token's total lifespan
+          const timeSinceAbsoluteInception = time - INCEPTION_SECS;
+          const totalAbsoluteLifespan = nowSecs - INCEPTION_SECS;
           
-          const value = 0.25 + (burnBonus * curvedProgress) + randomFactor;
-          historyData.push({ time, value: Math.max(0, value) }); // Ensure it never dips below 0
+          const progress = totalAbsoluteLifespan > 0 ? (timeSinceAbsoluteInception / totalAbsoluteLifespan) : 1;
+          const curvedProgress = Math.pow(Math.max(0, progress), 1.2); 
+          
+          // Deterministic market noise so the chart shape remains consistent across renders
+          const volatility = (Math.sin(time / 3600) + Math.cos(time / 7200)) * 0.0075; 
+          
+          const value = 0.25 + (burnBonus * curvedProgress) + volatility;
+          historyData.push({ time, value: Math.max(0.25, value) }); // Floor at base price
         }
       }
       
       areaSeries.setData(historyData);
       chart.timeScale().fitContent();
-      setCurrentPrice(targetPrice);
+      
+      // Set current price exactly to the last data point
+      if (historyData.length > 0) {
+        setCurrentPrice(historyData[historyData.length - 1].value);
+      } else {
+        setCurrentPrice(targetPrice);
+      }
       setLoading(false);
     };
 
@@ -109,14 +115,15 @@ export default function PriceChart({ totalBurned }: { totalBurned: number }) {
     // Setup 10s polling interval for streaming new points based on live burn
     const interval = setInterval(() => {
       const burnBonus = (Number(totalBurned) || 0) * 0.001; 
-      const volatility = (Math.random() - 0.5) * 0.02; // +/- 2 cents
+      const nowSecs = Math.floor(Date.now() / 1000);
+      const volatility = (Math.sin(nowSecs / 3600) + Math.cos(nowSecs / 7200)) * 0.0075; 
       const livePrice = basePrice + burnBonus + volatility;
 
       setCurrentPrice(livePrice);
       
       areaSeries.update({
-        time: Math.floor(Date.now() / 1000) as UTCTimestamp,
-        value: livePrice 
+        time: nowSecs as UTCTimestamp,
+        value: Math.max(0.25, livePrice) 
       });
     }, 10000);
 
