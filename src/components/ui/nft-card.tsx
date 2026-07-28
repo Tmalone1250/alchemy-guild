@@ -11,9 +11,11 @@ interface NFTCardProps {
   selected?: boolean;
   onAction?: (action: 'stake' | 'unstake' | 'claim' | 'select') => void;
   onSelect?: () => void;
+  actionDisabled?: boolean;
+  actionText?: string;
 }
 
-export function NFTCard({ nft, variant = 'inventory', selected, onAction, onSelect }: NFTCardProps) {
+export function NFTCard({ nft, variant = 'inventory', selected, onAction, onSelect, actionDisabled, actionText }: NFTCardProps) {
   const elementBgClasses: Record<string, string> = {
     // Tier I
     Earth: 'from-element-earth/20 to-element-earth/5',
@@ -112,9 +114,10 @@ export function NFTCard({ nft, variant = 'inventory', selected, onAction, onSele
                 size="sm"
                 variant="default"
                 className="w-full"
+                disabled={actionDisabled}
                 onClick={(e) => { e.stopPropagation(); onAction('stake'); }}
               >
-                Stake
+                {actionText || 'Stake'}
               </Button>
             )}
           </div>

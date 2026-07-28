@@ -4,7 +4,9 @@ import { NFTCard } from '@/components/ui/nft-card';
 import { Progress } from '@/components/ui/progress';
 import { TIERS } from '@/config/contracts';
 import { toast } from 'sonner';
-// import { useAccount } from 'wagmi';
+import { useReadContracts, useReadContract } from 'wagmi';
+import { GUILD_DISTRIBUTOR_ABI } from '@/config/abis';
+import { formatUnits } from 'viem';
 import { useYieldVault, useUserNFTs, useApproveNFT, useNFTApproval } from '@/hooks/useContracts';
 import { CONTRACTS } from '@/config/contracts';
 import { useRef, useState, useEffect } from 'react';
@@ -32,9 +34,27 @@ export default function Vault() {
   const stakedNFTs = nfts.filter((nft) => nft.staked);
   const walletNFTs = nfts.filter((nft) => !nft.staked);
 
-  const totalPendingYield = stakedNFTs.reduce((acc, nft) => {
-    return acc + parseFloat(nft.pendingYield || '0');
-  }, 0);
+  // 3-3-1 Loadout Limits
+  const { data: loadoutCounts } = useReadContracts({
+    contracts: [
+      { address: CONTRACTS.GuildDistributor.address, abi: GUILD_DISTRIBUTOR_ABI as any, functionName: 'stakedLeadCount', args: [smartAccountAddress] },
+      { address: CONTRACTS.GuildDistributor.address, abi: GUILD_DISTRIBUTOR_ABI as any, functionName: 'stakedSilverCount', args: [smartAccountAddress] },
+      { address: CONTRACTS.GuildDistributor.address, abi: GUILD_DISTRIBUTOR_ABI as any, functionName: 'stakedGoldCount', args: [smartAccountAddress] },
+    ]
+  });
+  
+  const [leadCount, silverCount, goldCount] = (loadoutCounts?.map(res => Number(res.result) || 0)) || [0, 0, 0];
+
+  // Real-Time Polling for Yield
+  const { data: earnedData } = useReadContract({
+    address: CONTRACTS.GuildDistributor.address,
+    abi: GUILD_DISTRIBUTOR_ABI as any,
+    functionName: 'earned',
+    args: smartAccountAddress ? [smartAccountAddress] : undefined,
+    query: { refetchInterval: 5000 }
+  });
+
+  const totalPendingYield = earnedData ? parseFloat(formatUnits(earnedData as bigint, 18)) : 0;
 
   const handleAction = async (action: 'stake' | 'unstake' | 'claim', tokenId: number) => {
     const toastId = `${action}-${tokenId}`; // Unique ID per token action
@@ -193,24 +213,46 @@ export default function Vault() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {walletNFTs.map((nft, index) => (
-              <motion.div
-                key={nft.tokenId}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-              >
-                <NFTCard
-                  nft={nft}
-                  variant="staking"
-                  onAction={(action) => {
-                    if (action !== 'select') {
-                      handleAction(action, nft.tokenId);
-                    }
-                  }}
-                />
-              </motion.div>
-            ))}
+            {walletNFTs.map((nft, index) => {
+              const isTier1 = nft.tier === 'Lead';
+              const isTier2 = nft.tier === 'Silver';
+              const isTier3 = nft.tier === 'Gold';
+
+              let actionDisabled = false;
+              let actionText = 'Stake';
+
+              if (isTier1 && leadCount >= 3) {
+                actionDisabled = true;
+                actionText = 'Max Equipped (3/3)';
+              } else if (isTier2 && silverCount >= 3) {
+                actionDisabled = true;
+                actionText = 'Max Equipped (3/3)';
+              } else if (isTier3 && goldCount >= 1) {
+                actionDisabled = true;
+                actionText = 'Max Equipped (1/1)';
+              }
+
+              return (
+                <motion.div
+                  key={nft.tokenId}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <NFTCard
+                    nft={nft}
+                    variant="staking"
+                    actionDisabled={actionDisabled}
+                    actionText={actionText}
+                    onAction={(action) => {
+                      if (action !== 'select') {
+                        handleAction(action, nft.tokenId);
+                      }
+                    }}
+                  />
+                </motion.div>
+              );
+            })}
           </div>
 
           {walletNFTs.length === 0 && (
