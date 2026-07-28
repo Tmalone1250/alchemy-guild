@@ -11,8 +11,9 @@ import "../src/contracts/AlchemistContract.sol";
 import "../src/contracts/AlchemyPaymaster.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+
 contract DeployGuildEcosystemV07 is Script {
-    address constant POSITION_MANAGER = 0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65;
+    address constant POSITION_MANAGER = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
     address constant SWAP_ROUTER      = 0x101F443B4d1b059569D643917553c771E1b9663E;
     address constant UNISWAP_POOL     = 0x66EEAB70aC52459Dd74C6AD50D578Ef76a441bbf;
     address constant WETH_ADDRESS     = 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73;
@@ -50,6 +51,7 @@ contract DeployGuildEcosystemV07 is Script {
 
         // 3. Deploy GuildDistributor
         GuildDistributor distributor = new GuildDistributor(address(guild));
+        distributor.setUsdc(USDC_ADDRESS);
         console.log("GuildDistributor Deployed:", address(distributor));
 
         // 4. Deploy ElementNFT (with GUILD rewards on mint)
@@ -70,6 +72,18 @@ contract DeployGuildEcosystemV07 is Script {
         // 7. Fund GuildDistributor with 20M GUILD
         guild.transfer(address(distributor), 20_000_000 * 10**18);
         console.log("Funded GuildDistributor with 20M GUILD");
+
+        // Initialize GUILD/WETH Uniswap V3 Pool
+        address token0 = WETH_ADDRESS < address(guild) ? WETH_ADDRESS : address(guild);
+        address token1 = WETH_ADDRESS < address(guild) ? address(guild) : WETH_ADDRESS;
+        
+        INonfungiblePositionManager(POSITION_MANAGER).createAndInitializePoolIfNecessary(
+            token0,
+            token1,
+            10000,
+            79228162514264337593543950336 // 1:1 price
+        );
+        console.log("Initialized GUILD/WETH 1% Fee Pool");
 
         // 8. Re-seed new YieldVault with WETH and USDC via executeRebalanceDirect
         uint256 wethBal = IERC20(WETH_ADDRESS).balanceOf(botWallet);
