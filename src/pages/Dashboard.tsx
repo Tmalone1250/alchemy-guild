@@ -52,26 +52,17 @@ export default function Dashboard() {
     }
   ] as const;
 
-  const { data: vaultUsdcBalance } = useReadContract({
+  const { data: distributorUsdcBalance } = useReadContract({
     address: CONTRACTS.USDC.address,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
-    args: [CONTRACTS.YieldVault.address],
+    args: [CONTRACTS.GuildDistributor.address],
   });
 
-  const { data: vaultWethBalance } = useReadContract({
-    address: CONTRACTS.WETH.address,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
-    args: [CONTRACTS.YieldVault.address],
-  });
-
-  const calculateTVL = () => {
-    if (!vaultUsdcBalance && !vaultWethBalance) return '$0.00';
-    const usdc = vaultUsdcBalance ? Number(vaultUsdcBalance) / 1e6 : 0;
-    const weth = vaultWethBalance ? Number(vaultWethBalance) / 1e18 : 0;
-    // Simplified: Just show USDC value (WETH value would need price oracle)
-    return `$${usdc.toFixed(2)}`;
+  const calculateActiveYieldPool = () => {
+    if (!distributorUsdcBalance) return '$0.00';
+    const usdc = Number(distributorUsdcBalance) / 1e6;
+    return `$${usdc.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const formatYieldIndex = (value: any) => {
@@ -92,9 +83,9 @@ export default function Dashboard() {
       {/* Protocol Health Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
-          title="Total Value Locked"
-          value={calculateTVL()}
-          subtitle="GOLD in vault"
+          title="Active Yield Pool"
+          value={calculateActiveYieldPool()}
+          subtitle="USDC securing the Waterfall"
           icon={Vault}
           variant="gold"
         />

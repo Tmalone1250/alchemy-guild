@@ -9,7 +9,7 @@ import { GUILD_DISTRIBUTOR_ABI } from '@/config/abis';
 import { formatUnits } from 'viem';
 import { useYieldVault, useUserNFTs, useApproveNFT, useNFTApproval } from '@/hooks/useContracts';
 import { CONTRACTS } from '@/config/contracts';
-import { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 
 import { useSmartAccount } from '@/hooks/useSmartAccount';
 
@@ -22,7 +22,7 @@ export default function Vault() {
   // Check if Vault is approved for all (optimization: check individual if needed, but isApprovedForAll is better UX for multiple stakes)
   // For simplicity in this specific flow, we might just check/approve the specific token or all.
   // Let's use isApprovedForAll to minimize transactions if they stake multiple.
-  const { isApprovedForAll } = useNFTApproval(smartAccountAddress || '', CONTRACTS.YieldVault.address);
+  const { isApprovedForAll } = useNFTApproval(smartAccountAddress || '', CONTRACTS.GuildDistributor.address);
 
   // Track pending action for toasts
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -35,12 +35,17 @@ export default function Vault() {
   const walletNFTs = nfts.filter((nft) => !nft.staked);
 
   // 3-3-1 Loadout Limits
-  const { data: loadoutCounts } = useReadContracts({
-    contracts: [
+  const loadoutContracts = useMemo(() => {
+    if (!smartAccountAddress) return [];
+    return [
       { address: CONTRACTS.GuildDistributor.address, abi: GUILD_DISTRIBUTOR_ABI as any, functionName: 'stakedLeadCount', args: [smartAccountAddress] },
       { address: CONTRACTS.GuildDistributor.address, abi: GUILD_DISTRIBUTOR_ABI as any, functionName: 'stakedSilverCount', args: [smartAccountAddress] },
       { address: CONTRACTS.GuildDistributor.address, abi: GUILD_DISTRIBUTOR_ABI as any, functionName: 'stakedGoldCount', args: [smartAccountAddress] },
-    ]
+    ];
+  }, [smartAccountAddress]);
+
+  const { data: loadoutCounts } = useReadContracts({
+    contracts: loadoutContracts as any
   });
   
   const [leadCount, silverCount, goldCount] = (loadoutCounts?.map(res => Number(res.result) || 0)) || [0, 0, 0];
@@ -49,12 +54,12 @@ export default function Vault() {
   const { data: earnedData } = useReadContract({
     address: CONTRACTS.GuildDistributor.address,
     abi: GUILD_DISTRIBUTOR_ABI as any,
-    functionName: 'earned',
+    functionName: 'earnedUser',
     args: smartAccountAddress ? [smartAccountAddress] : undefined,
     query: { refetchInterval: 5000 }
   });
 
-  const totalPendingYield = earnedData ? parseFloat(formatUnits(earnedData as bigint, 18)) : 0;
+  const totalPendingYield = earnedData ? parseFloat(formatUnits(earnedData as bigint, 6)) : 0;
 
   const handleAction = async (action: 'stake' | 'unstake' | 'claim', tokenId: number) => {
     const toastId = `${action}-${tokenId}`; // Unique ID per token action
@@ -67,8 +72,8 @@ export default function Vault() {
         if (!isApprovedForAll) {
           const approveId = 'approve-vault';
           setPendingAction(approveId);
-          toast.loading(`Please approve the Vault contract first...`, { id: approveId });
-          await setApprovalForAll(CONTRACTS.YieldVault.address, true);
+          toast.loading(`Please approve the Distributor contract first...`, { id: approveId });
+          await setApprovalForAll(CONTRACTS.GuildDistributor.address, true);
           return;
         }
 
@@ -118,7 +123,7 @@ export default function Vault() {
         </div>
         <div className="glass-panel px-6 py-4">
           <p className="text-xs text-muted-foreground">Total Pending Yield</p>
-          <p className="text-2xl font-mono text-gold-gradient">{totalPendingYield.toFixed(2)} GOLD</p>
+          <p className="text-2xl font-mono text-gold-gradient">${totalPendingYield.toFixed(4)} USDC</p>
         </div>
       </motion.div>
 

@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 
 contract DeployGuildEcosystemV07 is Script {
-    address constant POSITION_MANAGER = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
+    address constant POSITION_MANAGER = 0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65;
     address constant SWAP_ROUTER      = 0x101F443B4d1b059569D643917553c771E1b9663E;
     address constant UNISWAP_POOL     = 0x66EEAB70aC52459Dd74C6AD50D578Ef76a441bbf;
     address constant WETH_ADDRESS     = 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73;
@@ -65,7 +65,7 @@ contract DeployGuildEcosystemV07 is Script {
         // 6. Link contracts
         nft.setGuildDistributor(address(distributor));
         alchemist.setGuildDistributor(address(distributor));
-        distributor.setContracts(address(nft), address(alchemist));
+        distributor.setContracts(address(nft), address(alchemist), address(vault));
         vault.setElementNFT(address(nft));
         console.log("All Cross-Contract Links Established");
 
@@ -94,7 +94,7 @@ contract DeployGuildEcosystemV07 is Script {
         if (wethBal >= 499000000000000000 && usdcBal >= 2000000000) {
             IERC20(WETH_ADDRESS).transfer(address(vault), 499000000000000000);
             IERC20(USDC_ADDRESS).transfer(address(vault), 2000000000);
-            vault.executeRebalanceDirect(-200000, 200000);
+            // vault.executeRebalanceDirect(-200000, 200000); // Replaced by seed script
             console.log("Re-seeded new YieldVault LP position with 0.499 WETH and 2000 USDC");
         } else {
             console.log("Skipping deposit (check wallet WETH/USDC balances)");

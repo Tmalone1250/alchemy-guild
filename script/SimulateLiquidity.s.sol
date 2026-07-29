@@ -97,7 +97,6 @@ contract SimulateLiquidity is Script, Test {
             tokenOut: WETH,
             fee: 3000,
             recipient: WHALE,
-            deadline: block.timestamp,
             amountIn: 5_000_000 * 1e6, // $5M Swap
             amountOutMinimum: 0,
             sqrtPriceLimitX96: 0

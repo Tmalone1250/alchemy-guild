@@ -7,7 +7,8 @@ import { CONTRACTS } from '@/config/contracts';
 import {
   ELEMENT_NFT_ABI,
   ALCHEMIST_CONTRACT_ABI,
-  YIELD_VAULT_ABI
+  YIELD_VAULT_ABI,
+  GUILD_DISTRIBUTOR_ABI
 } from '@/config/abis';
 import { NFT } from '@/types/nft';
 import { useMemo, useState, useEffect } from 'react';
@@ -343,21 +344,21 @@ export function useYieldVault() {
     }
   }, [isSuccess, queryClient]);
 
-  const stake = async (tokenId: bigint, tier: number) => {
+  const stake = async (tokenId: bigint, tier?: number) => {
     setSmartAccountError(null);
     setSmartAccountHash(undefined);
-    console.log("stake called. tokenId:", tokenId, "tier:", tier);
+    console.log("stake called on GuildDistributor. tokenId:", tokenId);
 
     if (isSmartAccountReady && smartAccountClient) {
         try {
-            console.log("Attempting smart account stake...");
+            console.log("Attempting smart account stake on GuildDistributor...");
             setIsSmartAccountPending(true);
 
             const txHash = await smartAccountClient.writeContract({
-                address: CONTRACTS.YieldVault.address,
-                abi: YIELD_VAULT_ABI,
+                address: CONTRACTS.GuildDistributor.address,
+                abi: GUILD_DISTRIBUTOR_ABI,
                 functionName: 'stake',
-                args: [tokenId, tier],
+                args: [tokenId],
                 chain: arbitrumSepolia,
                 account: smartAccountClient.account,
             });
@@ -373,13 +374,13 @@ export function useYieldVault() {
         }
     }
 
-    console.log("Smart account not ready, falling back to EOA stake...");
+    console.log("Smart account not ready, falling back to EOA stake on GuildDistributor...");
     try {
         const txHash = await writeContractAsync({
-          address: CONTRACTS.YieldVault.address,
-          abi: YIELD_VAULT_ABI,
+          address: CONTRACTS.GuildDistributor.address,
+          abi: GUILD_DISTRIBUTOR_ABI,
           functionName: 'stake',
-          args: [tokenId, tier],
+          args: [tokenId],
         } as any);
         console.log("EOA stake transaction hash generated:", txHash);
         return txHash;
@@ -392,17 +393,17 @@ export function useYieldVault() {
   const unstake = async (tokenId: bigint) => {
     setSmartAccountError(null);
     setSmartAccountHash(undefined);
-    console.log("unstake called. tokenId:", tokenId);
+    console.log("unstake called on GuildDistributor. tokenId:", tokenId);
 
     if (isSmartAccountReady && smartAccountClient) {
         try {
-            console.log("Attempting smart account unstake...");
+            console.log("Attempting smart account unstake on GuildDistributor...");
             setIsSmartAccountPending(true);
             
             const txHash = await smartAccountClient.writeContract({
-                address: CONTRACTS.YieldVault.address,
-                abi: YIELD_VAULT_ABI,
-                functionName: 'unstake',
+                address: CONTRACTS.GuildDistributor.address,
+                abi: GUILD_DISTRIBUTOR_ABI,
+                functionName: 'withdraw',
                 args: [tokenId],
                 chain: arbitrumSepolia,
                 account: smartAccountClient.account,
@@ -419,12 +420,12 @@ export function useYieldVault() {
         }
     }
 
-    console.log("Smart account not ready, falling back to EOA unstake...");
+    console.log("Smart account not ready, falling back to EOA unstake on GuildDistributor...");
     try {
         const txHash = await writeContractAsync({
-          address: CONTRACTS.YieldVault.address,
-          abi: YIELD_VAULT_ABI,
-          functionName: 'unstake',
+          address: CONTRACTS.GuildDistributor.address,
+          abi: GUILD_DISTRIBUTOR_ABI,
+          functionName: 'withdraw',
           args: [tokenId],
         } as any);
         console.log("EOA unstake transaction hash generated:", txHash);
@@ -435,21 +436,21 @@ export function useYieldVault() {
     }
   };
 
-  const claimYield = async (tokenId: bigint) => {
+  const claimYield = async (tokenId?: bigint) => {
     setSmartAccountError(null);
     setSmartAccountHash(undefined);
-    console.log("claimYield called. tokenId:", tokenId);
+    console.log("claimYield/getReward called on GuildDistributor");
 
     if (isSmartAccountReady && smartAccountClient) {
         try {
-            console.log("Attempting smart account claimYield...");
+            console.log("Attempting smart account claimYield on GuildDistributor...");
             setIsSmartAccountPending(true);
 
             const txHash = await smartAccountClient.writeContract({
-                address: CONTRACTS.YieldVault.address,
-                abi: YIELD_VAULT_ABI,
-                functionName: 'claimYield',
-                args: [tokenId],
+                address: CONTRACTS.GuildDistributor.address,
+                abi: GUILD_DISTRIBUTOR_ABI,
+                functionName: 'getReward',
+                args: [],
                 chain: arbitrumSepolia,
                 account: smartAccountClient.account,
             });
@@ -465,13 +466,13 @@ export function useYieldVault() {
         }
     }
 
-    console.log("Smart account not ready, falling back to EOA claimYield...");
+    console.log("Smart account not ready, falling back to EOA claimYield on GuildDistributor...");
     try {
         const txHash = await writeContractAsync({
-          address: CONTRACTS.YieldVault.address,
-          abi: YIELD_VAULT_ABI,
-          functionName: 'claimYield',
-          args: [tokenId],
+          address: CONTRACTS.GuildDistributor.address,
+          abi: GUILD_DISTRIBUTOR_ABI,
+          functionName: 'getReward',
+          args: [],
         } as any);
         console.log("EOA claimYield transaction hash generated:", txHash);
         return txHash;
@@ -537,10 +538,10 @@ export function useUserNFTs(address?: string) {
       .map((item) => item.result as bigint);
   }, [tokenIdsData]);
 
-  // Get staked token IDs
+  // Get staked token IDs from GuildDistributor
   const { data: stakedTokenIds } = useReadContract({
-    address: CONTRACTS.YieldVault.address,
-    abi: YIELD_VAULT_ABI,
+    address: CONTRACTS.GuildDistributor.address,
+    abi: GUILD_DISTRIBUTOR_ABI,
     functionName: 'getUserStakedTokens',
     args: address ? [address] : undefined,
   });
@@ -585,21 +586,21 @@ export function useUserNFTs(address?: string) {
     contracts: tokenDetailsContracts as any,
   });
 
-  // Read vault's USDC balance to cap pending rewards
+  // Read distributor's USDC balance to cap pending rewards
   const { data: vaultUsdcBalance } = useReadContract({
     address: CONTRACTS.USDC.address,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
-    args: [CONTRACTS.YieldVault.address],
+    args: [CONTRACTS.GuildDistributor.address],
   });
 
   // Batch read pending rewards for staked tokens
   const pendingRewardContracts = useMemo(() => {
     if (!stakedTokenIds || (stakedTokenIds as bigint[]).length === 0) return [];
     return (stakedTokenIds as bigint[]).map((tokenId) => ({
-      address: CONTRACTS.YieldVault.address,
-      abi: YIELD_VAULT_ABI,
-      functionName: 'getPendingReward',
+      address: CONTRACTS.GuildDistributor.address,
+      abi: GUILD_DISTRIBUTOR_ABI,
+      functionName: 'earned',
       args: [tokenId],
     }));
   }, [stakedTokenIds]);
@@ -695,9 +696,9 @@ export function useUserNFTs(address?: string) {
 
 export function usePendingReward(tokenId?: bigint) {
   const { data: pendingReward } = useReadContract({
-    address: CONTRACTS.YieldVault.address,
-    abi: YIELD_VAULT_ABI,
-    functionName: 'getPendingReward',
+    address: CONTRACTS.GuildDistributor.address,
+    abi: GUILD_DISTRIBUTOR_ABI,
+    functionName: 'earned',
     args: tokenId !== undefined ? [tokenId] : undefined,
   });
 
@@ -708,8 +709,8 @@ export function usePendingReward(tokenId?: bigint) {
 
 export function useStakedTokens(address?: string) {
   const { data: stakedTokens } = useReadContract({
-    address: CONTRACTS.YieldVault.address,
-    abi: YIELD_VAULT_ABI,
+    address: CONTRACTS.GuildDistributor.address,
+    abi: GUILD_DISTRIBUTOR_ABI,
     functionName: 'getUserStakedTokens',
     args: address ? [address] : undefined,
   });

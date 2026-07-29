@@ -18,6 +18,7 @@ contract GuildDistributor is Ownable, IERC721Receiver {
     IERC20 public usdc;
     address public elementNFT;
     address public alchemist;
+    address public yieldVault;
     uint256 public guildPriceUSD = 0.77 ether;
 
     // Equivalents to spec limits
@@ -28,6 +29,8 @@ contract GuildDistributor is Ownable, IERC721Receiver {
     mapping(address => uint8) public stakedLeadCount;
     mapping(address => uint8) public stakedSilverCount;
     mapping(address => uint8) public stakedGoldCount;
+
+    uint256 public unallocatedUsdc;
 
     // Synthetix-style variables
     uint256 public totalWeightT1;
@@ -69,10 +72,12 @@ contract GuildDistributor is Ownable, IERC721Receiver {
 
     function setContracts(
         address _elementNFT,
-        address _alchemist
+        address _alchemist,
+        address _yieldVault
     ) external onlyOwner {
         elementNFT = _elementNFT;
         alchemist = _alchemist;
+        yieldVault = _yieldVault;
         emit ContractsUpdated(_elementNFT, _alchemist);
     }
 
@@ -82,9 +87,6 @@ contract GuildDistributor is Ownable, IERC721Receiver {
 
     /**
      * @notice Distributes GUILD rewards to users when minting or crafting.
-     * @dev Un-brickable safety check: if the distributor balance is lower than `amount`,
-     * or if the token transfer fails, it catches the error and exits cleanly without throwing
-     * a revert. This prevents core gameplay loops (mint/craft) from ever freezing.
      */
     function rewardUser(
         address user,
@@ -146,13 +148,20 @@ contract GuildDistributor is Ownable, IERC721Receiver {
             stakedGoldCount[msg.sender]++;
         }
 
-        // Must update rewards before changing balances/weights
+        // 1. Update reward debt with accumulator BEFORE dispersing unallocated yield
         _updateReward(tokenId, tier);
 
         uint256 weight = getTierWeight(tier);
         if (tier == 1) totalWeightT1 += weight;
         else if (tier == 2) totalWeightT2 += weight;
         else if (tier == 3) totalWeightT3 += weight;
+
+        // 2. Disperse unallocated USDC if any exists now that weights are updated
+        if (unallocatedUsdc > 0) {
+            uint256 toDisperse = unallocatedUsdc;
+            unallocatedUsdc = 0;
+            _distributeAmount(toDisperse);
+        }
 
         staker[tokenId] = msg.sender;
         userStakedTokens[msg.sender].add(tokenId);
@@ -200,7 +209,21 @@ contract GuildDistributor is Ownable, IERC721Receiver {
         return (weight * (currentAccumulator - userRewardPerTokenPaid[tokenId])) / 1e18 + rewards[tokenId];
     }
 
-    function getReward() external {
+    function earnedUser(address user) public view returns (uint256) {
+        uint256 totalEarned = 0;
+        EnumerableSet.UintSet storage tokens = userStakedTokens[user];
+        uint256 length = tokens.length();
+        for (uint256 i = 0; i < length; i++) {
+            totalEarned += earned(tokens.at(i));
+        }
+        return totalEarned;
+    }
+
+    function getUserStakedTokens(address user) external view returns (uint256[] memory) {
+        return userStakedTokens[user].values();
+    }
+
+    function getReward() public {
         uint256 reward = 0;
         EnumerableSet.UintSet storage tokens = userStakedTokens[msg.sender];
         uint256 length = tokens.length();
@@ -219,19 +242,23 @@ contract GuildDistributor is Ownable, IERC721Receiver {
         }
     }
 
-    // Emergency Fallback
-    function notifyRewardAmount(uint256 amount) external onlyOwner {
-        require(amount > 0, "Zero amount");
-        usdc.transferFrom(msg.sender, address(this), amount);
+    function claimAll() external {
+        getReward();
+    }
+
+    function _distributeAmount(uint256 amount) internal {
+        if (amount == 0) return;
+        uint256 totalAll = totalWeightT1 + totalWeightT2 + totalWeightT3;
+        if (totalAll == 0) {
+            unallocatedUsdc += amount;
+            return;
+        }
 
         uint256 pool1Amount = (amount * 50) / 100;
         uint256 pool2Amount = (amount * 30) / 100;
         uint256 pool3Amount = amount - pool1Amount - pool2Amount;
 
-        uint256 totalAll = totalWeightT1 + totalWeightT2 + totalWeightT3;
-        if (totalAll > 0) {
-            rewardPerWeightPool1 += (pool1Amount * 1e18) / totalAll;
-        }
+        rewardPerWeightPool1 += (pool1Amount * 1e18) / totalAll;
 
         uint256 totalT2T3 = totalWeightT2 + totalWeightT3;
         if (totalT2T3 > 0) {
@@ -241,6 +268,15 @@ contract GuildDistributor is Ownable, IERC721Receiver {
         if (totalWeightT3 > 0) {
             rewardPerWeightPool3 += (pool3Amount * 1e18) / totalWeightT3;
         }
+    }
+
+    // Emergency Fallback and Yield Injection
+    function notifyRewardAmount(uint256 amount) external {
+        require(msg.sender == owner() || msg.sender == yieldVault, "Not authorized to inject yield");
+        require(amount > 0, "Zero amount");
+        usdc.transferFrom(msg.sender, address(this), amount);
+
+        _distributeAmount(amount);
     }
 
     function onERC721Received(

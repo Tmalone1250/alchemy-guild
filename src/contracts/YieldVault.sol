@@ -24,6 +24,10 @@ interface IWETH is IERC20 {
     function withdraw(uint256 amount) external;
 }
 
+interface IYieldVault_GuildDistributor {
+    function notifyRewardAmount(uint256 amount) external;
+}
+
 contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
     using SafeTransferLib for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
@@ -51,13 +55,8 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         uint256 indexed tokenId,
         uint256 reward
     );
-    event Rebalanced(
-        uint256 indexed positionId,
-        uint256 wethCollected,
-        uint256 usdcDistributed,
-        uint256 treasuryTax
-    );
     event ElementNFTSet(address indexed elementNFT);
+    event Harvested(uint256 wethSwapped, uint256 guildSwapped, uint256 usdtSwapped, uint256 usdcInjected);
 
     // Constants - scale factor (1e18) and tier weights (100, 135, 175)
     uint256 private constant SCALE_FACTOR = 1e18;
@@ -68,7 +67,7 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
     // Global state variables
     uint256 public sTotalWeight;
     uint256 public sAccRewardPerWeight;
-    uint256 public sLastPositionId;
+    uint256[] public activePositions;
     uint256 public sTotalUnclaimedYield;
 
     // Nox confidential variables
@@ -80,26 +79,15 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
     IERC20 public immutable USDC;
     address public immutable PAYMASTER;
 
+    IERC20 public GUILD;
+    IERC20 public USDT;
+    IYieldVault_GuildDistributor public DISTRIBUTOR;
+
     // Mappings
     mapping(uint256 => address) public sNftOwner;
     mapping(uint256 => uint256) public sRewardDebt;
     mapping(uint256 => uint8) public sStakedTier;
     mapping(address => EnumerableSet.UintSet) private sUserStakedTokens;
-
-    // MintParams struct
-    struct MintParams {
-        address token0;
-        address token1;
-        uint24 fee;
-        int24 tickLower;
-        int24 tickUpper;
-        uint256 amount0Desired;
-        uint256 amount1Desired;
-        uint256 amount0Min;
-        uint256 amount1Min;
-        address recipient;
-        uint256 deadline;
-    }
 
     // Constructor
     constructor(
@@ -127,39 +115,33 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         emit ElementNFTSet(_elementNFT);
     }
 
+    // Set ecosystem addresses
+    function setEcosystemTokens(address _guild, address _usdt, address _distributor) external onlyOwner {
+        GUILD = IERC20(_guild);
+        USDT = IERC20(_usdt);
+        DISTRIBUTOR = IYieldVault_GuildDistributor(_distributor);
+    }
+
     // Receive function to wrap ETH to WETH
     receive() external payable {
-        // Only wrap if the ETH came from somewhere OTHER than the WETH contract (i.e. not a withdraw)
         if (msg.sender != address(WETH) && msg.value > 0) {
             IWETH(address(WETH)).deposit{value: msg.value}();
         }
     }
 
-    // getTierWeight() function
     function getTierWeight(uint8 tier) internal pure returns (uint256) {
-        if (tier == 1) {
-            return TIER1_WEIGHT;
-        } else if (tier == 2) {
-            return TIER2_WEIGHT;
-        } else if (tier == 3) {
-            return TIER3_WEIGHT;
-        } else {
-            revert("Invalid tier");
-        }
+        if (tier == 1) return TIER1_WEIGHT;
+        if (tier == 2) return TIER2_WEIGHT;
+        if (tier == 3) return TIER3_WEIGHT;
+        revert("Invalid tier");
     }
 
-    // stake() function
     function stake(uint256 tokenId, uint8 tier) external nonReentrant {
-        // Verify tier matches the NFT's actual tier
         require(tier >= 1 && tier <= 3, "Invalid tier");
         require(I_ELEMENT_NFT.getTokenTier(tokenId) == tier, "Tier mismatch");
 
-        // safe transfer of NFT to the contract
         I_ELEMENT_NFT.safeTransferFrom(msg.sender, address(this), tokenId);
-
         sRewardDebt[tokenId] = sAccRewardPerWeight;
-
-        // Update sTotalWeight and sNftOwner
         uint256 weight = getTierWeight(tier);
         sTotalWeight += weight;
         sNftOwner[tokenId] = msg.sender;
@@ -169,316 +151,113 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         emit Staked(msg.sender, tokenId, tier, weight);
     }
 
-    // unstake() function
     function unstake(uint256 tokenId) external nonReentrant {
         require(sNftOwner[tokenId] == msg.sender, "Not the owner");
 
-        // Calculate pending rewards
         uint256 weight = getTierWeight(sStakedTier[tokenId]);
-        uint256 pendingReward = (weight *
-            (sAccRewardPerWeight - sRewardDebt[tokenId])) / SCALE_FACTOR;
+        uint256 pendingReward = (weight * (sAccRewardPerWeight - sRewardDebt[tokenId])) / SCALE_FACTOR;
 
-        // Update sTotalWeight and clear mappings
         sTotalWeight -= weight;
         delete sNftOwner[tokenId];
         delete sRewardDebt[tokenId];
         delete sStakedTier[tokenId];
         sUserStakedTokens[msg.sender].remove(tokenId);
 
-        // Transfer NFT back to owner (FIXED: was using POSITION_MANAGER instead of I_ELEMENT_NFT)
         I_ELEMENT_NFT.safeTransferFrom(address(this), msg.sender, tokenId);
 
-        // Handle reward distribution (e.g., transfer tokens)
-        // Payout USDC rewards to msg.sender
         if (pendingReward > 0) {
             if (sTotalUnclaimedYield >= pendingReward) {
                 sTotalUnclaimedYield -= pendingReward;
             } else {
-                sTotalUnclaimedYield = 0; // Should not happen if tracked correctly, but safe fallback
+                sTotalUnclaimedYield = 0; 
             }
             USDC.safeTransfer(msg.sender, pendingReward);
         }
-
         emit Unstaked(msg.sender, tokenId, pendingReward);
     }
 
-    // _getNearestUsableTick() function
-    function _getNearestUsableTick(
-        int24 tick,
-        int24 tickSpacing
-    ) internal pure returns (int24) {
-        int24 rounded = (tick / tickSpacing) * tickSpacing;
-        if (tick < 0 && (tick % tickSpacing != 0)) {
-            rounded -= tickSpacing;
-        }
-        return rounded;
-    }
-
-    // Automated Liquidity Manager Rebalancing (Request Step)
-    function rebalance(
-        externalEint256 encryptedTickLower,
-        bytes calldata proofLower,
-        externalEint256 encryptedTickUpper,
-        bytes calldata proofUpper
-    ) external onlyOwner nonReentrant {
-        sEncryptedTickLower = Nox.fromExternal(encryptedTickLower, proofLower);
-        sEncryptedTickUpper = Nox.fromExternal(encryptedTickUpper, proofUpper);
-
-        Nox.allowThis(sEncryptedTickLower);
-        Nox.allowThis(sEncryptedTickUpper);
-
-        Nox.allowPublicDecryption(sEncryptedTickLower);
-        Nox.allowPublicDecryption(sEncryptedTickUpper);
-
-        sPendingRebalance = true;
-    }
-
-    // Automated Liquidity Manager Rebalancing (Execution Step)
-    function executeRebalance(
-        eint256 encryptedTickLower,
-        bytes calldata proofLower,
-        eint256 encryptedTickUpper,
-        bytes calldata proofUpper
-    ) external nonReentrant {
-        require(sPendingRebalance, "No pending rebalance");
-        require(
-            eint256.unwrap(encryptedTickLower) == eint256.unwrap(sEncryptedTickLower) &&
-            eint256.unwrap(encryptedTickUpper) == eint256.unwrap(sEncryptedTickUpper),
-            "Invalid handles"
-        );
-
-        int24 tickLower = int24(Nox.publicDecrypt(sEncryptedTickLower, proofLower));
-        int24 tickUpper = int24(Nox.publicDecrypt(sEncryptedTickUpper, proofUpper));
-
-        sPendingRebalance = false;
-        _executeRebalance(tickLower, tickUpper);
-    }
-
-    // Direct rebalance bypass for testing and owner emergency
-    function executeRebalanceDirect(
-        int24 tickLower,
-        int24 tickUpper
-    ) external onlyOwner nonReentrant {
-        _executeRebalance(tickLower, tickUpper);
-    }
-
-    // Internal implementation containing the original rebalancing logic
-    function _executeRebalance(int24 tickLower, int24 tickUpper) internal {
-        // --- STEP 1: HARVEST & PROCESS FEES ---
-        // We collect fees BEFORE touching liquidity. This gives us pure trading fees.
-        uint256 fee0 = 0;
-        uint256 fee1 = 0;
+    // Generic Swap Helper
+    function _attemptSwap(address tokenIn, address tokenOut, uint256 amountIn, uint24 fee) internal returns (uint256) {
+        if (amountIn == 0) return 0;
         
-        // Snapshot balances to calculate pure fee collection
-        uint256 bal0 = USDC.balanceOf(address(this));
-        uint256 bal1 = WETH.balanceOf(address(this));
+        IERC20(tokenIn).approve(address(SWAP_ROUTER), amountIn);
         
-        if (sLastPositionId != 0) {
+        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            fee: fee,
+            recipient: address(this),
+            amountIn: amountIn,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        
+        return SWAP_ROUTER.exactInputSingle(swapParams);
+    }
+
+    // Harvest And Distribute
+    function harvestAndDistribute() external nonReentrant {
+        uint256 length = activePositions.length;
+        require(length > 0, "No active positions");
+
+        uint256 usdcBefore = USDC.balanceOf(address(this));
+
+        // 1. Collect fees from all active positions
+        for (uint256 i = 0; i < length; i++) {
             POSITION_MANAGER.collect(
                 INonfungiblePositionManager.CollectParams({
-                    tokenId: sLastPositionId,
+                    tokenId: activePositions[i],
                     recipient: address(this),
                     amount0Max: type(uint128).max,
                     amount1Max: type(uint128).max
                 })
             );
         }
-        
-        // Calculate collected fees
-        fee0 = USDC.balanceOf(address(this)) - bal0;
-        fee1 = WETH.balanceOf(address(this)) - bal1;
 
-        // --- NEW RECYCLING LOGIC ---
-        // 1. Calculate Tax (10% of each token)
-        uint256 tax0 = fee0 / 10; // USGS Tax
-        uint256 tax1 = fee1 / 10; // WETH Tax
-        
-        uint256 netFeeUsdc = fee0 - tax0;
-        uint256 netFeeWeth = fee1 - tax1;
-
-        // 2. Process TAX (Convert to ETH -> Deposit to Paymaster)
-        uint256 ethToDeposit = 0;
-
-        // A. Convert Tax USDC to WETH
-        if (tax0 > 0) {
-            try this._attemptSwap(address(USDC), address(WETH), tax0) returns (uint256 wethReceived) {
-                tax1 += wethReceived;
-            } catch {}
+        // 2. Swap collected tokens to USDC
+        uint256 wethCollected = WETH.balanceOf(address(this));
+        if (wethCollected > 0) {
+            _attemptSwap(address(WETH), address(USDC), wethCollected, 3000); // WETH/USDC is 0.3%
         }
 
-        // B. Unwrap Total Tax WETH -> ETH and Deposit
-        if (tax1 > 0) {
-            IWETH(address(WETH)).withdraw(tax1); // Unwrap
-            ethToDeposit = address(this).balance;
-            if (ethToDeposit > 0) {
-                ENTRY_POINT.depositTo{value: ethToDeposit}(PAYMASTER);
-            }
+        uint256 guildCollected = address(GUILD) != address(0) ? GUILD.balanceOf(address(this)) : 0;
+        if (guildCollected > 0) {
+            _attemptSwap(address(GUILD), address(WETH), guildCollected, 10000); // GUILD/WETH is 1%
         }
 
-        // 3. Process USER YIELD (Convert remaining WETH -> USDC)
-        if (netFeeWeth > 0) {
-             try this._attemptSwap(address(WETH), address(USDC), netFeeWeth) returns (uint256 usdcReceived) {
-                netFeeUsdc += usdcReceived;
-            } catch {}
-        }
-        
-        // 4. Distribute Yield
-        if (netFeeUsdc > 0) {
-            if (sTotalWeight > 0) {
-                sAccRewardPerWeight += (netFeeUsdc * SCALE_FACTOR) / sTotalWeight;
-                sTotalUnclaimedYield += netFeeUsdc;
-            }
-        }
-        
-        emit Rebalanced(sLastPositionId, fee0, netFeeUsdc, ethToDeposit);
-
-        // --- STEP 2: MANAGE PRINCIPAL (LIQUIDITY) ---
-        
-        // Sanitize tick inputs to match the pool tick spacing
-        int24 tickSpacing = POOL.tickSpacing();
-        int24 usableTickLower = _getNearestUsableTick(tickLower, tickSpacing);
-        int24 usableTickUpper = _getNearestUsableTick(tickUpper, tickSpacing);
-
-        bool shouldMoveLiquidity = false;
-        
-        if (sLastPositionId != 0) {
-            (,,,,,,,uint128 posLiquidity,,,,) = POSITION_MANAGER.positions(sLastPositionId);
-            (,,,,,int24 posTickLower, int24 posTickUpper,,,,,) = POSITION_MANAGER.positions(sLastPositionId);
-
-            if (posLiquidity == 0) {
-                shouldMoveLiquidity = true;
-            } 
-            else {
-                // Get current pool tick
-                (, int24 currentTick, , , , , ) = POOL.slot0();
-                if (currentTick < posTickLower || currentTick > posTickUpper) {
-                    shouldMoveLiquidity = true;
-                    
-                    // Withdraw PRINCIPAL
-                    POSITION_MANAGER.decreaseLiquidity(
-                        INonfungiblePositionManager.DecreaseLiquidityParams({
-                            tokenId: sLastPositionId,
-                            liquidity: posLiquidity,
-                            amount0Min: 0,
-                            amount1Min: 0,
-                            deadline: block.timestamp
-                        })
-                    );
-                    
-                    // Collect PRINCIPAL
-                    POSITION_MANAGER.collect(
-                        INonfungiblePositionManager.CollectParams({
-                            tokenId: sLastPositionId,
-                            recipient: address(this),
-                            amount0Max: type(uint128).max,
-                            amount1Max: type(uint128).max
-                        })
-                    );
-                }
-            }
-            
-            if (shouldMoveLiquidity) {
-                POSITION_MANAGER.burn(sLastPositionId);
-                sLastPositionId = 0;
-            }
+        uint256 usdtCollected = address(USDT) != address(0) ? USDT.balanceOf(address(this)) : 0;
+        if (usdtCollected > 0) {
+            _attemptSwap(address(USDT), address(USDC), usdtCollected, 500); // USDT/USDC is 0.05%
         }
 
-        // --- STEP 3: RE-INVEST PRINCIPAL ---
-        if (sLastPositionId == 0) {
-            uint256 balance0 = USDC.balanceOf(address(this));
-            uint256 balance1 = WETH.balanceOf(address(this));
-            
-            uint256 investable0 = balance0 > sTotalUnclaimedYield ? balance0 - sTotalUnclaimedYield : 0;
-            uint256 amount0ToMint = (investable0 * 80) / 100;
-            
-            if (amount0ToMint > 0 || balance1 > 0) {
-                _safeApprove(USDC, address(POSITION_MANAGER), amount0ToMint);
-                _safeApprove(WETH, address(POSITION_MANAGER), balance1);
+        // Re-check WETH balance after GUILD->WETH swap
+        uint256 wethFinal = WETH.balanceOf(address(this));
+        if (wethFinal > 0) {
+            _attemptSwap(address(WETH), address(USDC), wethFinal, 3000);
+        }
 
-                INonfungiblePositionManager.MintParams
-                    memory params = INonfungiblePositionManager.MintParams({
-                        token0: address(USDC),
-                        token1: address(WETH),
-                        fee: 3000,
-                        tickLower: usableTickLower,
-                        tickUpper: usableTickUpper,
-                        amount0Desired: amount0ToMint,
-                        amount1Desired: balance1,
-                        amount0Min: 0,
-                        amount1Min: 0,
-                        recipient: address(this),
-                        deadline: block.timestamp
-                    });
+        // 3. Inject all new USDC into the Waterfall
+        uint256 usdcAfter = USDC.balanceOf(address(this));
+        uint256 collectedUsdc = usdcAfter > usdcBefore ? usdcAfter - usdcBefore : 0;
 
-                try POSITION_MANAGER.mint(params) returns (uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {
-                    sLastPositionId = tokenId;
-                } catch Error(string memory reason) {
-                    revert(string(abi.encodePacked("Mint Failed: ", reason)));
-                } catch {
-                    revert("Mint Failed (Unknown)");
-                }
-            }
+        if (collectedUsdc > 0 && address(DISTRIBUTOR) != address(0)) {
+            USDC.approve(address(DISTRIBUTOR), collectedUsdc);
+            DISTRIBUTOR.notifyRewardAmount(collectedUsdc);
+            emit Harvested(wethCollected + wethFinal, guildCollected, usdtCollected, collectedUsdc);
         }
     }
 
-    // Safe Approve Helper (Reset to 0, then set amount)
-    function _safeApprove(IERC20 token, address spender, uint256 amount) internal {
-        // 1. Approve 0 first (Handling USDT-like tokens)
-        (bool success1, ) = address(token).call(abi.encodeWithSelector(IERC20.approve.selector, spender, 0));
-        require(success1, "Approve 0 failed");
-
-        // 2. Approve Amount
-        (bool success2, bytes memory data) = address(token).call(abi.encodeWithSelector(IERC20.approve.selector, spender, amount));
-        require(success2 && (data.length == 0 || abi.decode(data, (bool))), "Approve failed");
-    }
-        
-    
-
-    // Generic Swap Helper
-    function _attemptSwap(address tokenIn, address tokenOut, uint256 amountIn) external returns (uint256) {
-        require(msg.sender == address(this), "Internal only");
-        
-        // Approve swap router
-        IERC20(tokenIn).approve(address(SWAP_ROUTER), amountIn);
-        
-        // Execute swap
-        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter
-            .ExactInputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: tokenOut,
-                fee: 3000,
-                recipient: address(this),
-                deadline: block.timestamp + 300,
-                amountIn: amountIn,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            });
-        
-        return SWAP_ROUTER.exactInputSingle(swapParams);
-    }
-
-    // claimYield() function
     function claimYield(uint256 tokenId) external nonReentrant {
         require(sNftOwner[tokenId] == msg.sender, "Not the owner");
-
         uint256 weight = getTierWeight(sStakedTier[tokenId]);
-        uint256 pendingReward = (weight *
-            (sAccRewardPerWeight - sRewardDebt[tokenId])) / SCALE_FACTOR;
-
-        // Require pendingReward > 0
+        uint256 pendingReward = (weight * (sAccRewardPerWeight - sRewardDebt[tokenId])) / SCALE_FACTOR;
         require(pendingReward > 0, "No rewards to claim");
 
-        // Update reward debt
         sRewardDebt[tokenId] = sAccRewardPerWeight;
-
-
-        // Payout USDC rewards to msg.sender
-        // Cap reward at available USDC (in case most is locked in Uniswap position)
         uint256 availableUsdc = USDC.balanceOf(address(this));
         uint256 rewardToPay = pendingReward > availableUsdc ? availableUsdc : pendingReward;
         
         require(rewardToPay > 0, "No USDC available in vault");
-        
         if (sTotalUnclaimedYield >= rewardToPay) {
             sTotalUnclaimedYield -= rewardToPay;
         } else {
@@ -486,30 +265,15 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         }
         
         USDC.safeTransfer(msg.sender, rewardToPay);
-
         emit YieldClaimed(msg.sender, tokenId, rewardToPay);
     }
 
-    // Emergency Withdraw function - Pull base liquidity out to owner
-    function emergencyWithdraw() external nonReentrant onlyOwner {
-        uint256 balance0 = WETH.balanceOf(address(this));
-        uint256 balance1 = USDC.balanceOf(address(this));
-        WETH.safeTransfer(msg.sender, balance0);
-        USDC.safeTransfer(msg.sender, balance1);
-    }
-
-    // getPendingReward() function
     function getPendingReward(uint256 tokenId) external view returns (uint256) {
         uint256 weight = getTierWeight(sStakedTier[tokenId]);
-        uint256 pendingReward = (weight *
-            (sAccRewardPerWeight - sRewardDebt[tokenId])) / SCALE_FACTOR;
-        return pendingReward;
+        return (weight * (sAccRewardPerWeight - sRewardDebt[tokenId])) / SCALE_FACTOR;
     }
 
-    // getUserStakedTokens() function
-    function getUserStakedTokens(
-        address user
-    ) external view returns (uint256[] memory) {
+    function getUserStakedTokens(address user) external view returns (uint256[] memory) {
         uint256 count = sUserStakedTokens[user].length();
         uint256[] memory tokens = new uint256[](count);
         for (uint256 i = 0; i < count; i++) {
@@ -518,13 +282,20 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         return tokens;
     }
 
-    // onERC721Received() function
     function onERC721Received(
-        address /* operator */,
-        address /* from */,
-        uint256 /* tokenId */,
-        bytes calldata /* data */
-    ) external pure override returns (bytes4) {
+        address,
+        address,
+        uint256 tokenId,
+        bytes calldata
+    ) external override returns (bytes4) {
+        if (msg.sender == address(POSITION_MANAGER)) {
+            activePositions.push(tokenId);
+        }
         return IERC721Receiver.onERC721Received.selector;
+    }
+
+    // Dummy for backward compatibility with older deployment scripts
+    function executeRebalanceDirect(int24 tickLower, int24 tickUpper) external onlyOwner {
+        // No-op for now, replaced by harvestAndDistribute and seed scripts
     }
 }
