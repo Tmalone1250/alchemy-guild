@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAccount, useReadContract, usePublicClient } from 'wagmi';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatEther, parseEther } from 'viem';
+import { formatEther, parseEther, encodeFunctionData } from 'viem';
 import { arbitrumSepolia } from 'viem/chains';
 import { Shield, Lock, Unlock, Sparkles, CheckCircle2, Info } from 'lucide-react';
 import { toast } from 'sonner';
@@ -119,25 +119,47 @@ export function ShieldingLab() {
         const currentAllowance = (allowanceData as bigint) || 0n;
 
         if (currentAllowance < parsedAmount) {
-          // ── Step 1: Approve ────────────────────────────────────────────
-          setStep('approving');
-          const approveTx = await smartAccountClient.writeContract({
-            address: GUILD_TOKEN_ADDRESS,
-            abi: GUILD_TOKEN_ABI,
-            functionName: 'approve',
-            args: [CGUILD_ADDRESS, parsedAmount],
+          // ── Batch: Approve + Shield ────────────────────────────────────
+          setStep('shielding');
+          toast.loading('Batching approval & shielding…', { id: 'shield-tx' });
+          
+          const approveCall = {
+            to: GUILD_TOKEN_ADDRESS,
+            data: encodeFunctionData({
+              abi: GUILD_TOKEN_ABI,
+              functionName: 'approve',
+              args: [CGUILD_ADDRESS, parsedAmount]
+            })
+          };
+          
+          const shieldCall = {
+            to: CGUILD_ADDRESS,
+            data: encodeFunctionData({
+              abi: CGUILD_ABI,
+              functionName: 'shield',
+              args: [parsedAmount]
+            })
+          };
+
+          const txHash = await (smartAccountClient as any).sendTransaction({
+            calls: [approveCall, shieldCall],
             chain: arbitrumSepolia,
             account: smartAccountClient.account,
           });
-          toast.loading('Approving GUILD tokens…', { id: 'approve-tx' });
-          const approveReceipt = await publicClient!.waitForTransactionReceipt({ hash: approveTx });
-          if (approveReceipt.status !== 'success') throw new Error('Approval transaction reverted');
-          toast.success('GUILD tokens approved!', { id: 'approve-tx' });
-          invalidateAll();
-        }
 
-        // ── Step 2: Shield ─────────────────────────────────────────────
-        await execShield(parsedAmount);
+          // Wait for the bundler to get the userOp on-chain (using publicClient, which works if the bundler returns the actual txHash, or we just rely on standard timeout)
+          // Wait, permissionless `sendTransaction` natively waits for the tx to hit the chain and returns the actual tx hash!
+          const receipt = await publicClient!.waitForTransactionReceipt({ hash: txHash });
+          if (receipt.status !== 'success') throw new Error('Batched transaction reverted');
+          
+          toast.success(`Tokens shielded! TX: ${txHash.slice(0, 10)}…`, { id: 'shield-tx' });
+          setStep('success');
+          setAmount('');
+          invalidateAll();
+        } else {
+          // ── Shield only (Already approved) ─────────────────────────────
+          await execShield(parsedAmount);
+        }
 
       } else {
         // ── Unshield ────────────────────────────────────────────────────
