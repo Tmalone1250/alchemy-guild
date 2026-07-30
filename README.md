@@ -87,14 +87,16 @@ To increase yield share and rarity, players combine lower-tier NFTs into higher-
 | **III** | **Gold** | Holy, Dark, Gravity, Time, Bio, Spirit | `175` | **1.75x** |
 
 ### 3. Staking & Real USDC Harvest (`YieldVault.sol` + `GuildDistributor.sol`)
-When players stake their elemental NFTs inside **The Vault**:
-- `YieldVault` tracks the user's total active weight versus the `globalTotalWeight`.
-- The user's pro-rata yield reward `$R_{user}$` is calculated as a function of their total staked NFT weight `$W_{user}$` against the global total weight of staked elements `$W_{global}$` and the accumulated fee pool `$F_{fees}$`:
-  
-  $$R_{user} = \frac{W_{user}}{W_{global}} \times F_{fees}$$
-  
-- As traders swap on Uniswap V3, real **USDC trading fees** accrue to the vault.
-- `YieldVault.harvestAndDistribute()` pushes **90% of all harvested USDC** into `GuildDistributor` for stakers to claim instantly, and routes **10%** to the **Protocol Tax Paymaster** to perpetually fund user gas.
+When players stake their elemental NFTs inside **The Vault**, they earn a share of real **USDC trading fees** accrued from the underlying Uniswap V3 liquidity pool. 
+
+`YieldVault.harvestAndDistribute()` routes **10%** of all harvested USDC to the **Protocol Tax Paymaster** to perpetually fund user gas. The remaining **90%** is pushed into the `GuildDistributor`, which uses a **Synthetix-style Waterfall Distribution** to heavily incentivize higher-tier NFTs:
+
+Every yield injection is split into **three tranches (pools)**:
+- **Pool 1 (50% of Yield):** Shared among Tier I, Tier II, and Tier III stakers.
+- **Pool 2 (30% of Yield):** Shared exclusively between Tier II and Tier III stakers.
+- **Pool 3 (20% of Yield):** Exclusive to Tier III stakers.
+
+A user's exact share within an eligible pool is calculated pro-rata based on their NFT's base weight (Tier I: `100`, Tier II: `135`, Tier III: `175`). Because Tier III NFTs have access to all three pools and carry a higher base weight, they generate exponentially higher yield than lower-tier assets.
 
 ### 4. Dynamic Subsidy (Mint/Transmute-to-Earn)
 To reward users for participating in the economy, paying protocol fees triggers an instant **GUILD Subsidy** distributed directly from the Treasury Distributor:
