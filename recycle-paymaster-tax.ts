@@ -1,156 +1,206 @@
-
-import { ethers } from "ethers";
-import dotenv from "dotenv";
-import { CONTRACTS, PAYMASTER_ADDRESS } from "./src/config/contracts";
+import { createPublicClient, createWalletClient, http, parseUnits, formatUnits, formatEther, parseAbi, parseEther } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { arbitrumSepolia } from 'viem/chains';
+import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const PRIVATE_KEY = process.env.BOT_PRIVATE_KEY || process.env.PRIVATE_KEY;
-const RPC_URL = process.env.ARBITRUM_SEPOLIA_RPC_URL || process.env.VITE_INFURA_RPC_URL || "https://sepolia-rollup.arbitrum.io/rpc";
+// ============================================================================
+// CONFIGURATION & CANONICAL ARBITRUM SEPOLIA ADDRESSES (Chain ID: 421614)
+// ============================================================================
 
-if (!PRIVATE_KEY) {
-    console.error("Missing PRIVATE_KEY in .env");
-    process.exit(1);
-}
+const RPC_URL = "https://sepolia-rollup.arbitrum.io/rpc";
 
-const provider = new ethers.JsonRpcProvider(RPC_URL);
-const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+const WETH_ADDRESS  = "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73";
+const USDC_ADDRESS  = "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d";
+const SWAP_ROUTER   = "0x101F443B4d1b059569D643917553c771E1b9663E"; // Uniswap V3 SwapRouter02
+const PAYMASTER     = "0xa9924829148A1a1Bd057EAC11B448084cDCbC60a";
 
+const POOL_FEE = 500; // 0.05% fee tier
+
+// ============================================================================
 // ABIs
-const PAYMASTER_ABI = [
-    "function withdrawERC20(address token, address to, uint256 amount) external",
-    "function deposit() public payable",
-    "function getDeposit() public view returns (uint256)"
-];
+// ============================================================================
 
-const ERC20_ABI = [
-    "function balanceOf(address account) external view returns (uint256)",
-    "function approve(address spender, uint256 amount) external returns (bool)",
-    "function transfer(address recipient, uint256 amount) external returns (bool)",
-    "function allowance(address owner, address spender) external view returns (uint256)"
-];
+const ERC20_ABI = parseAbi([
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function balanceOf(address account) external view returns (uint256)',
+  'function decimals() external view returns (uint8)',
+]);
 
-const WETH_ABI = [
-    ...ERC20_ABI,
-    "function withdraw(uint256 wad) external"
-];
+const PAYMASTER_ABI = parseAbi([
+  'function withdrawERC20(address token, address to, uint256 amount) external',
+  'function deposit() external payable',
+]);
 
-const ROUTER_ABI = [
-    "function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 deadline, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) external payable returns (uint256 amountOut)"
-];
+const SWAP_ROUTER_ABI = parseAbi([
+  'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) external payable returns (uint256 amountOut)',
+]);
 
-const ROUTER_ADDRESS = "0x101F443B4d1b059569D643917553c771E1b9663E"; // Uniswap V3 SwapRouter02 (Arbitrum Sepolia)
+const WETH_ABI = parseAbi([
+  'function withdraw(uint256 wad) external',
+]);
 
-async function recycle() {
-    const timestamp = new Date().toISOString();
-    console.log(`\n[${timestamp}] 🔄 Starting Paymaster Tax Recycler Cycle...`);
-    // console.log(`Pool Address (Verification): ${CONTRACTS.Pool.address}`);
-    // console.log(`Paymaster: ${PAYMASTER_ADDRESS}`);
-    
-    // Contracts
-    const paymaster = new ethers.Contract(PAYMASTER_ADDRESS, PAYMASTER_ABI, wallet);
-    const usdc = new ethers.Contract(CONTRACTS.USDC.address, ERC20_ABI, wallet);
-    const weth = new ethers.Contract(CONTRACTS.WETH.address, WETH_ABI, wallet);
-    const router = new ethers.Contract(ROUTER_ADDRESS, ROUTER_ABI, wallet);
+// ============================================================================
+// MAIN RECYCLE EXECUTION
+// ============================================================================
 
-    // 0. Check Owner Gas (ETH)
-    const ethBalanceStart = await provider.getBalance(wallet.address);
-    // console.log(`👤 Owner ETH Balance: ${ethers.formatEther(ethBalanceStart)} ETH`);
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    if (ethBalanceStart < ethers.parseEther("0.005")) {
-        console.error(`⚠️ Owner Wallet (${wallet.address}) is low on gas!`);
-        console.error(`   Balance: ${ethers.formatEther(ethBalanceStart)} ETH`);
-        console.error(`   Required: > 0.005 ETH to process withdrawals.`);
-        return;
-    }
+async function recycleCycle() {
+  let rawPrivateKey = process.env.BOT_PRIVATE_KEY || process.env.PRIVATE_KEY || "";
+  if (!rawPrivateKey) {
+    throw new Error("❌ PRIVATE_KEY or BOT_PRIVATE_KEY missing in .env environment!");
+  }
+  if (!rawPrivateKey.startsWith("0x")) {
+    rawPrivateKey = "0x" + rawPrivateKey;
+  }
+  const account = privateKeyToAccount(rawPrivateKey as `0x${string}`);
 
-    // 1. Check Paymaster USDC Balance
-    const usdcBalance = await usdc.balanceOf(PAYMASTER_ADDRESS);
-    console.log(`💰 Paymaster USDC Balance: ${ethers.formatUnits(usdcBalance, 6)} USDC`);
+  const publicClient = createPublicClient({
+    chain: arbitrumSepolia,
+    transport: http(RPC_URL),
+  });
 
-    if (usdcBalance == 0n) {
-        console.log("⚠️ Paymaster has 0 USDC.");
-    }
+  const walletClient = createWalletClient({
+    account,
+    chain: arbitrumSepolia,
+    transport: http(RPC_URL),
+  });
 
-    // Check Owner Balance too (in case of previous partial run)
-    const ownerUsdcStart = await usdc.balanceOf(wallet.address);
-    // console.log(`👤 Owner USDC Balance: ${ethers.formatUnits(ownerUsdcStart, 6)}`);
+  console.log(`🤖 Bot Wallet Address: ${account.address}`);
 
-    if (usdcBalance == 0n && ownerUsdcStart < 100000n) { // Less than 0.1 USDC
-         console.log("✅ No significant USDC to recycle anywhere. Waiting for next cycle.");
-         return;
-    }
+  // 1. Check USDC Balance in Paymaster
+  const paymasterUsdcBalance = await publicClient.readContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [PAYMASTER],
+  });
 
-    // 2. Withdraw USDC from Paymaster to Owner (only if Paymaster has > $1 USDC)
-    const MIN_USDC_THRESHOLD = 1000000n; // 1 USDC
-    
-    if (usdcBalance < MIN_USDC_THRESHOLD) {
-        console.log(`⏳ Paymaster balance (${ethers.formatUnits(usdcBalance, 6)} USDC) below threshold ($1). Waiting...`);
-        return;
-    }
+  const minThreshold = parseUnits("0.1", 6); // 0.1 USDC
 
-    // Determine ETH to Seed (Simulated Rate: 1 USDC = 0.0003 ETH)
-    // We calculate this BEFORE withdrawing to ensure we have funds.
-    const RATE_ETH_PER_USDC = ethers.parseEther("0.0003"); 
-    const ethToSeed = (usdcBalance * RATE_ETH_PER_USDC) / 1000000n;
+  if (paymasterUsdcBalance <= minThreshold) {
+    console.log(`✅ Paymaster USDC balance (${formatUnits(paymasterUsdcBalance, 6)} USDC) is below threshold. No recycle needed.`);
+    return;
+  }
 
-    // Check Owner Balance for Gas + Seed
-    // Check Owner Gas (ETH)
-    const ethBalanceCheck = await provider.getBalance(wallet.address);
-    if (ethBalanceCheck < (ethToSeed + ethers.parseEther("0.01"))) { // Seed + Gas Buffer
-        console.error(`⚠️ Owner Wallet low on ETH! Cannot recycle.`);
-        console.error(`   Have: ${ethers.formatEther(ethBalanceCheck)}`);
-        console.error(`   Need: ${ethers.formatEther(ethToSeed)} (Seed) + Gas`);
-        return;
-    }
+  console.log(`\n--- 💸 Step 1: Withdrawing ${formatUnits(paymasterUsdcBalance, 6)} USDC from Paymaster ---`);
+  
+  const withdrawTxHash = await walletClient.writeContract({
+    address: PAYMASTER,
+    abi: PAYMASTER_ABI,
+    functionName: 'withdrawERC20',
+    args: [USDC_ADDRESS, account.address, paymasterUsdcBalance],
+  });
+  console.log(`📡 Broadcasted Withdraw Tx Hash: ${withdrawTxHash}`);
+  await publicClient.waitForTransactionReceipt({ hash: withdrawTxHash });
+  console.log(`✅ Withdraw Confirmed!`);
 
-    console.log(`🔻 Withdrawing ${ethers.formatUnits(usdcBalance, 6)} USDC...`);
-    try {
-        const withdrawTx = await paymaster.withdrawERC20(
-            CONTRACTS.USDC.address,
-            wallet.address,
-            usdcBalance
-        );
-        await withdrawTx.wait();
-        console.log("✅ Withdraw confirmed.");
-    } catch (e) {
-        console.error("❌ Withdraw Failed:", e);
-        return;
-    }
-    
-    // 3. Deposit equivalent ETH to Paymaster
-    if (ethToSeed > 0n) {
-        console.log(`⛽ Recirculating: Sending ${ethers.formatEther(ethToSeed)} ETH to Paymaster...`);
-        try {
-            const depositTx = await paymaster.deposit({ value: ethToSeed });
-            await depositTx.wait();
-            console.log("✅ Deposit confirmed.");
-        } catch (e) {
-             console.error("❌ Deposit Failed:", e);
-        }
-    }
-    
-    // Final Check
-    const newDeposit = await paymaster.getDeposit();
-    console.log(`🎉 Cycle Complete! Paymaster Gas Tank: ${ethers.formatEther(newDeposit)} ETH`);
+  // 2. Approve SwapRouter to spend USDC
+  console.log(`\n--- 🔓 Step 2: Approving SwapRouter for USDC ---`);
+  const approveTxHash = await walletClient.writeContract({
+    address: USDC_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'approve',
+    args: [SWAP_ROUTER, paymasterUsdcBalance],
+  });
+  console.log(`📡 Broadcasted Approval Tx Hash: ${approveTxHash}`);
+  await publicClient.waitForTransactionReceipt({ hash: approveTxHash });
+  console.log(`✅ Approval Confirmed!`);
+
+  // Record bot's WETH balance before swap
+  const wethBalanceBefore = await publicClient.readContract({
+    address: WETH_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [account.address],
+  });
+
+  // 3. Swap USDC -> WETH
+  console.log(`\n--- 🚀 Step 3: Swapping USDC -> WETH ---`);
+  const swapParams = {
+    tokenIn: USDC_ADDRESS,
+    tokenOut: WETH_ADDRESS,
+    fee: POOL_FEE,
+    recipient: account.address,
+    amountIn: paymasterUsdcBalance,
+    amountOutMinimum: 0n,
+    sqrtPriceLimitX96: 0n,
+  };
+
+  const swapTxHash = await walletClient.writeContract({
+    address: SWAP_ROUTER,
+    abi: SWAP_ROUTER_ABI,
+    functionName: 'exactInputSingle',
+    args: [swapParams],
+    gas: 500000n,
+  });
+  console.log(`📡 Broadcasted Swap Tx Hash: ${swapTxHash}`);
+  await publicClient.waitForTransactionReceipt({ hash: swapTxHash });
+  console.log(`✅ Swap Confirmed!`);
+
+  // Check how much WETH we got
+  const wethBalanceAfter = await publicClient.readContract({
+    address: WETH_ADDRESS,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [account.address],
+  });
+  const wethGained = wethBalanceAfter - wethBalanceBefore;
+  console.log(`Received: ${formatEther(wethGained)} WETH`);
+
+  if (wethGained <= 0n) {
+    throw new Error("❌ Swap resulted in 0 WETH! Aborting.");
+  }
+
+  // 4. Unwrap WETH to ETH
+  console.log(`\n--- 🔄 Step 4: Unwrapping ${formatEther(wethGained)} WETH to ETH ---`);
+  const unwrapTxHash = await walletClient.writeContract({
+    address: WETH_ADDRESS,
+    abi: WETH_ABI,
+    functionName: 'withdraw',
+    args: [wethGained],
+  });
+  console.log(`📡 Broadcasted Unwrap Tx Hash: ${unwrapTxHash}`);
+  await publicClient.waitForTransactionReceipt({ hash: unwrapTxHash });
+  console.log(`✅ Unwrap Confirmed!`);
+
+  // 5. Deposit to Paymaster
+  console.log(`\n--- ⛽ Step 5: Depositing ETH to Paymaster ---`);
+  const depositTxHash = await walletClient.writeContract({
+    address: PAYMASTER,
+    abi: PAYMASTER_ABI,
+    functionName: 'deposit',
+    value: wethGained,
+  });
+  console.log(`📡 Broadcasted Deposit Tx Hash: ${depositTxHash}`);
+  await publicClient.waitForTransactionReceipt({ hash: depositTxHash });
+  console.log(`✅ Deposit Confirmed! Payload successfully recycled.`);
+  
+  console.log("=========================================================");
+  console.log("♻️  Paymaster Recycle Cycle Complete!");
+  console.log("=========================================================");
 }
 
 async function main() {
-    const INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
-    
-    console.log("🤖 Starting Paymaster Recycler Bot (Daemon Mode)");
-    console.log("⏰ Schedule: Every 30 minutes");
+  console.log("=========================================================");
+  console.log("♻️  Starting Paymaster Tax Recycler Bot...");
+  console.log("♻️  Cycle Interval: 30 minutes");
+  console.log("=========================================================");
 
-    // Run immediately on start
-    await recycle().catch(console.error);
-
-    // Loop
-    setInterval(async () => {
-        await recycle().catch(console.error);
-    }, INTERVAL_MS);
+  while (true) {
+    try {
+      await recycleCycle();
+    } catch (err) {
+      console.error("\n❌ Recycler Script Error during cycle:", err);
+    }
+    console.log(`\n💤 Sleeping for 30 minutes...`);
+    await sleep(30 * 60 * 1000);
+  }
 }
 
-main().catch((error) => {
-    console.error(error);
-    process.exit(1);
+main().catch((err) => {
+  console.error("\n❌ Fatal Recycler Script Error:", err);
+  process.exit(1);
 });

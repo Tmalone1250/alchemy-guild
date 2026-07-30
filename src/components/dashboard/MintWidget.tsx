@@ -1,35 +1,15 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Mountain, Flame, Droplets, Wind, Snowflake, Zap } from 'lucide-react';
+import { Sparkles, Anvil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ElementType, ELEMENTS } from '@/config/contracts';
 import { toast } from 'sonner';
 import { useElementNFT } from '@/hooks/useContracts';
 import { useAccount } from 'wagmi';
 
 import { useGuildOracle } from '@/hooks/useGuildOracle';
 
-const elementIcons = {
-  Earth: Mountain,
-  Fire: Flame,
-  Water: Droplets,
-  Wind: Wind,
-  Ice: Snowflake,
-  Lightning: Zap,
-};
-
-const elementStyles: Record<string, string> = {
-  Earth: 'bg-element-earth/10 border-element-earth/30 hover:bg-element-earth/20 text-element-earth',
-  Water: 'bg-element-water/10 border-element-water/30 hover:bg-element-water/20 text-element-water',
-  Wind: 'bg-element-wind/10 border-element-wind/30 hover:bg-element-wind/20 text-element-wind',
-  Fire: 'bg-element-fire/10 border-element-fire/30 hover:bg-element-fire/20 text-element-fire',
-  Ice: 'bg-element-ice/10 border-element-ice/30 hover:bg-element-ice/20 text-element-ice',
-  Lightning: 'bg-element-lightning/10 border-element-lightning/30 hover:bg-element-lightning/20 text-element-lightning',
-};
-
 export function MintWidget() {
-  const [selectedElement, setSelectedElement] = useState<ElementType | null>(null);
   const { publicMint, isPending, isConfirming, isSuccess, error } = useElementNFT();
   const { address } = useAccount();
   const { guildBurned } = useGuildOracle();
@@ -38,15 +18,11 @@ export function MintWidget() {
   const dynamicReward = 1.00 / currentPrice;
 
   const handleMint = async () => {
-    if (!selectedElement) return;
-
-    const elementIndex = ELEMENTS.findIndex(el => el.name === selectedElement);
-    if (elementIndex === -1) return;
-
     try {
-      console.log('MintWidget: Initiating minting process for element:', selectedElement, 'index:', elementIndex);
+      console.log('MintWidget: Initiating mystery minting process');
       console.log('MintWidget: Connected address:', address);
-      const tx = await publicMint(elementIndex);
+      // Hardcode arg 0 for the smart contract ABI signature
+      const tx = await publicMint(0);
       console.log('MintWidget: Mint transaction submitted/completed:', tx);
     } catch (err: any) {
       console.error('MintWidget: Error caught inside handleMint:', err);
@@ -61,11 +37,10 @@ export function MintWidget() {
 
   useEffect(() => {
     if (isSuccess) {
-      console.log('MintWidget: isSuccess triggered. Successfully minted:', selectedElement);
-      toast.success(`Successfully minted ${selectedElement} Element! (+${dynamicReward.toFixed(2)} GUILD Subsidy Granted)`, { id: 'mint' });
-      setSelectedElement(null);
+      console.log('MintWidget: isSuccess triggered. Successfully minted mystery element');
+      toast.success(`Successfully forged a Mystery Element! (+${dynamicReward.toFixed(2)} GUILD Subsidy Granted)`, { id: 'mint' });
     }
-  }, [isSuccess, selectedElement, dynamicReward]);
+  }, [isSuccess, dynamicReward]);
 
   useEffect(() => {
     if (error) {
@@ -87,8 +62,8 @@ export function MintWidget() {
           <Sparkles className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-foreground">Mint New Element</h3>
-          <p className="text-sm text-muted-foreground">Select an element to mint</p>
+          <h3 className="text-lg font-semibold text-foreground">Forge Mystery Tier 1 Element</h3>
+          <p className="text-sm text-muted-foreground">The Alchemy Forge will yield a random foundational element (Lead Tier). Cost: 0.002 ETH.</p>
         </div>
       </div>
 
@@ -102,50 +77,37 @@ export function MintWidget() {
         </div>
       </div>
 
-      {/* Element Grid */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {ELEMENTS.filter(el => el.id < 6).map((element) => {
-          const Icon = elementIcons[element.name];
-          const isSelected = selectedElement === element.name;
-
-          return (
-            <motion.button
-              key={element.id}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setSelectedElement(element.name)}
-              className={cn(
-                'relative p-4 rounded-xl border transition-all duration-200 flex flex-col items-center gap-2',
-                elementStyles[element.name],
-                isSelected && 'ring-2 ring-primary gold-glow'
-              )}
-            >
-              <Icon className="w-8 h-8" />
-              <span className="text-xs font-medium">{element.name}</span>
-            </motion.button>
-          );
-        })}
+      {/* Mystery Gacha Display */}
+      <div className="flex justify-center mb-6">
+        <motion.div
+          animate={{ scale: [1, 1.02, 1] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="w-48 h-48 rounded-xl flex flex-col items-center justify-center gap-4 border-2 border-primary bg-gradient-to-br from-primary/20 to-primary/5 gold-glow"
+        >
+          <Anvil className="w-16 h-16 text-primary drop-shadow-md" />
+          <div className="text-center">
+            <p className="text-lg font-bold text-foreground">Mystery Drop</p>
+            <p className="text-xs text-muted-foreground">? ? ?</p>
+          </div>
+        </motion.div>
       </div>
 
       {/* Mint Button */}
       <Button
         className="w-full"
         size="lg"
-        disabled={!selectedElement || isPending || isConfirming}
+        disabled={isPending || isConfirming}
         onClick={handleMint}
       >
         {isPending || isConfirming ? (
           <span className="flex items-center gap-2">
             <div className="w-4 h-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-            {isPending ? 'Confirm in wallet...' : 'Minting...'}
+            {isPending ? 'Confirm in wallet...' : 'Forging...'}
           </span>
-        ) : selectedElement ? (
-          `Mint ${selectedElement} Element (0.002 ETH)`
         ) : (
-          'Select an Element'
+          'Forge Mystery Element (0.002 ETH)'
         )}
       </Button>
-
 
       <p className="text-xs text-muted-foreground text-center mt-3 animate-pulse">
         ** Please refresh the page after minting to mint another. **

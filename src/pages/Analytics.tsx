@@ -132,7 +132,7 @@ export default function Analytics() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-foreground font-cinzel">Liquidity Depth</h3>
-              <p className="text-xs text-muted-foreground">YieldVault backing reserves</p>
+              <p className="text-xs text-muted-foreground">Treasury backing reserves</p>
             </div>
           </div>
           <div className="space-y-6">

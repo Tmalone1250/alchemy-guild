@@ -124,24 +124,24 @@ export function useProtocolStats() {
                 await new Promise(r => setTimeout(r, 200));
 
                 const stakedLogs = await fetchLogsInChunksParallel(
-                    CONTRACTS.YieldVault.address as `0x${string}`,
-                    parseAbiItem('event Staked(address indexed user, uint256 indexed tokenId, uint8 tier, uint256 weight)'),
+                    CONTRACTS.GuildDistributor.address as `0x${string}`,
+                    parseAbiItem('event Staked(address indexed user, uint256 tokenId, uint8 tier, uint256 weight)'),
                     DEPLOYMENT_BLOCK,
                     currentBlock
                 );
                 await new Promise(r => setTimeout(r, 200));
 
                 const unstakedLogs = await fetchLogsInChunksParallel(
-                    CONTRACTS.YieldVault.address as `0x${string}`,
-                    parseAbiItem('event Unstaked(address indexed user, uint256 indexed tokenId, uint256 reward)'),
+                    CONTRACTS.GuildDistributor.address as `0x${string}`,
+                    parseAbiItem('event Withdrawn(address indexed user, uint256 tokenId, uint8 tier, uint256 weight)'),
                     DEPLOYMENT_BLOCK,
                     currentBlock
                 );
                 await new Promise(r => setTimeout(r, 200));
 
                 const yieldLogs = await fetchLogsInChunksParallel(
-                    CONTRACTS.YieldVault.address as `0x${string}`,
-                    parseAbiItem('event YieldClaimed(address indexed user, uint256 indexed tokenId, uint256 reward)'),
+                    CONTRACTS.GuildDistributor.address as `0x${string}`,
+                    parseAbiItem('event RewardPaid(address indexed user, uint256 reward)'),
                     DEPLOYMENT_BLOCK,
                     currentBlock
                 );
@@ -201,7 +201,6 @@ export function useProtocolStats() {
 
                 let totalYield = BigInt(0);
                 const allRewardEvents = [
-                    ...(unstakedLogs || []).map(l => ({ ...l, reward: l.args.reward })),
                     ...(yieldLogs || []).map(l => ({ ...l, reward: l.args.reward }))
                 ].sort((a, b) => Number(a.blockNumber) - Number(b.blockNumber));
 
@@ -209,14 +208,18 @@ export function useProtocolStats() {
                 let cumulativeYield = 0;
                 allRewardEvents.forEach(e => {
                     if (e.reward) {
-                        totalYield += e.reward;
                         cumulativeYield += Number(e.reward) / 1e6;
-                        yieldHistoryPoints.push({
-                            date: `Block ${e.blockNumber}`,
-                            value: cumulativeYield
-                        });
+                        // Subtract the 2500 USDC initial seed test from the display data
+                        const displayYield = Math.max(0, cumulativeYield - 2500);
+                        if (cumulativeYield >= 2500) {
+                            yieldHistoryPoints.push({
+                                date: `Block ${e.blockNumber}`,
+                                value: displayYield
+                            });
+                        }
                     }
                 });
+                const finalTotalYield = Math.max(0, cumulativeYield - 2500);
 
                 const sampledHistory = yieldHistoryPoints.filter((_, i) => i % Math.max(1, Math.floor(yieldHistoryPoints.length / 20)) === 0);
                 if (yieldHistoryPoints.length > 0 && sampledHistory[sampledHistory.length - 1] !== yieldHistoryPoints[yieldHistoryPoints.length - 1]) {
@@ -243,18 +246,18 @@ export function useProtocolStats() {
                     });
                 }
 
-                // Fetch YieldVault's USDC balance for TVL
+                // Fetch GuildDistributor's USDC balance for TVL
                 const vaultUsdc = await (analyticsClient.readContract as any)({
                     address: CONTRACTS.USDC.address as `0x${string}`,
                     abi: [parseAbiItem('function balanceOf(address) view returns (uint256)')],
                     functionName: 'balanceOf',
-                    args: [CONTRACTS.YieldVault.address]
+                    args: [CONTRACTS.GuildDistributor.address]
                 }) as bigint;
 
                 return {
                     uniqueHolders: uniqueAddresses.size,
                     totalStaked: stakedTokens.size,
-                    totalYieldClaimed: (Number(totalYield) / 1e6).toFixed(6),
+                    totalYieldClaimed: finalTotalYield.toFixed(6),
                     stakingByTier,
                     userStakingByTier,
                     yieldHistory: sampledHistory.length > 0 ? sampledHistory : [{ date: 'Start', value: 0 }],

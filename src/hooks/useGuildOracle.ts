@@ -1,7 +1,7 @@
 import { useReadContracts } from 'wagmi';
 import {
   GUILD_TOKEN_ADDRESS,
-  YIELD_VAULT_ADDRESS,
+  CONTRACTS,
   USDC_ADDRESS,
   WETH_ADDRESS
 } from '@/config/contracts';
@@ -56,13 +56,13 @@ export function useGuildOracle() {
         address: USDC_ADDRESS,
         abi: erc20Abi,
         functionName: 'balanceOf',
-        args: [YIELD_VAULT_ADDRESS],
+        args: [CONTRACTS.Treasury.address],
       },
       {
         address: WETH_ADDRESS,
         abi: erc20Abi,
         functionName: 'balanceOf',
-        args: [YIELD_VAULT_ADDRESS],
+        args: [CONTRACTS.Treasury.address],
       }
     ] as const,
   });

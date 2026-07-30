@@ -5,7 +5,6 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {IGuildDistributor} from "./interfaces/IGuildDistributor.sol";
 
 contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
@@ -20,28 +19,22 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
     uint256 private _tokenIdCounter;
     address public immutable TREASURY;
     address public guildDistributor;
+    string public baseURI = "ipfs://PENDING_METADATA/";
 
     event GuildDistributorSet(address indexed distributor);
     
-    // Mapping to store token tiers
+    // Mappings
     mapping(uint256 => uint8) private sTokenElements;
     mapping(uint256 => uint8) private sTokenTiers;
     
-    // Element names
-    string[18] private elementNames = [
-        "Earth", "Water", "Wind", "Fire", "Ice", "Lightning",   // Tier 1
-        "Plasma", "Tornado", "Blizzard", "Tsunami", "Quake", "Inferno", // Tier 2
-        "Holy", "Dark", "Gravity", "Time", "Bio", "Spirit"      // Tier 3
-    ];
-    
     // Constructor
-    
     constructor(address _treasury) ERC721("Alchemy Elements", "ELEM") {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         TREASURY = _treasury;
     }
     
     // Admin mint function (free, requires MINTER_ROLE)
+    // Used by AlchemistContract for deterministic crafting
     function mint(
         address to,
         uint8 tier,
@@ -56,17 +49,28 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
     }
     
     // Public mint function (costs 0.002 ETH, Tier 1 only)
-    function publicMint(uint8 element) external payable {
-        require(msg.value >= 0.002 ether, "Insufficient payment");
-        require(element <= 5, "Invalid element for Tier 1");
+    function publicMint(uint8 /* element */) external payable {
+        require(msg.value >= 0.002 ether, "Insufficient ETH for materials fee");
         
         // Transfer minting fee to treasury immediately
         (bool success, ) = TREASURY.call{value: msg.value}("");
         require(success, "Treasury transfer failed");
         
         uint256 tokenId = _tokenIdCounter;
-        sTokenTiers[tokenId] = 1; // Always Tier 1
-        sTokenElements[tokenId] = element;
+        
+        // 1. Generate Pseudo-Random Hash
+        uint256 randomHash = uint256(keccak256(abi.encodePacked(
+            block.timestamp,
+            block.prevrandao,
+            msg.sender,
+            tokenId
+        )));
+        
+        // 2. Hardcode Tier to 1 (Lead)
+        sTokenTiers[tokenId] = 1; 
+        
+        // 3. Determine Variant (Roll 0-5 for Tier 1 internal state)
+        sTokenElements[tokenId] = uint8(randomHash % 6);
         
         _mint(msg.sender, tokenId);
         _tokenIdCounter++;
@@ -74,6 +78,10 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
         if (guildDistributor != address(0)) {
             IGuildDistributor(guildDistributor).rewardUser(msg.sender, 1 ether);
         }
+    }
+    
+    function setBaseURI(string memory _newBaseURI) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        baseURI = _newBaseURI;
     }
     
     function setGuildDistributor(address _distributor) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -88,7 +96,6 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
     
     // withdrawEth() function
     function withdrawEth() external onlyRole(WITHDRAWER_ROLE) {
-        // low-level call to withdraw ETH from contract
         (bool success, ) = msg.sender.call{value: address(this).balance}("");
         require(success, "Withdrawal failed");
     }
@@ -98,54 +105,35 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
         return sTokenTiers[tokenId];
     }
     
-    // Function to get token element
+    // Function to get token element (used by AlchemistContract)
     function getTokenElement(uint256 tokenId) external view returns (uint8) {
         return sTokenElements[tokenId];
     }
     
-    // Generates the SVG image code for the card
-    function generateSVG(uint256 tokenId) internal view returns (string memory) {
+    // Returns the IPFS URI
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        _requireOwned(tokenId);
+        
         uint8 tier = sTokenTiers[tokenId];
-        uint8 elementIdx = sTokenElements[tokenId];
-        string memory elementName = elementNames[elementIdx];
+        uint8 elementId = sTokenElements[tokenId];
         
-        // Dynamic colors based on Tier (Gold, Silver, Bronze/Lead)
-        string memory borderColor = tier == 3 ? "#FFD700" : (tier == 2 ? "#C0C0C0" : "#CD7F32");
-        string memory tierName = tier == 3 ? "Gold" : (tier == 2 ? "Silver" : "Lead");
+        string memory tierFolder;
+        if (tier == 1) tierFolder = "lead";
+        else if (tier == 2) tierFolder = "silver";
+        else if (tier == 3) tierFolder = "gold";
         
+        // Map internal element ID (0-17) to JSON file (1-6)
+        uint256 jsonFilename = (elementId % 6) + 1;
+        
+        // Concatenate: baseURI + tierFolder + "/" + jsonFilename + ".json"
         return string(abi.encodePacked(
-            '<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet" viewBox="0 0 350 350">',
-            '<style>.base { fill: white; font-family: serif; font-size: 24px; }</style>',
-            '<rect width="100%" height="100%" fill="#0a0a0a" />', // Dark Background
-            '<rect x="10" y="10" width="330" height="330" fill="none" stroke="', borderColor, '" stroke-width="5" />',
-            '<text x="50%" y="40%" class="base" dominant-baseline="middle" text-anchor="middle">', elementName, '</text>',
-            '<text x="50%" y="60%" class="base" dominant-baseline="middle" text-anchor="middle" font-size="18px" fill="#888">Tier: ', tierName, '</text>',
-            '</svg>'
+            baseURI,
+            tierFolder,
+            "/",
+            jsonFilename.toString(),
+            ".json"
         ));
     }
-    
-    // Returns the full Data URL (Metadata)
-    function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        _requireOwned(tokenId); // Check existence
-        
-        string memory elementName = elementNames[sTokenElements[tokenId]];
-        string memory tierString = Strings.toString(sTokenTiers[tokenId]);
-        
-        // Create JSON
-        string memory json = Base64.encode(bytes(string(abi.encodePacked(
-            '{"name": "', elementName, '",',
-            '"description": "An Alchemical Element used for transmutation in the YieldVault.",',
-            '"attributes": [',
-            '{"trait_type": "Tier", "value": "', tierString, '"},',
-            '{"trait_type": "Element", "value": "', elementName, '"}',
-            '],',
-            '"image": "data:image/svg+xml;base64,', Base64.encode(bytes(generateSVG(tokenId))), '"}'
-        ))));
-        
-        return string(abi.encodePacked("data:application/json;base64,", json));
-    }
-    
-    
     
     // The following functions are overrides required by Solidity.
     
@@ -164,7 +152,6 @@ contract ElementNFT is ERC721, ERC721Enumerable, AccessControl {
         super._increaseBalance(account, value);
     }
     
-    // Override supportsInterface to resolve conflict between ERC721, ERC721Enumerable and AccessControl
     function supportsInterface(
         bytes4 interfaceId
     )

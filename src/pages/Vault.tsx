@@ -172,7 +172,7 @@ export default function Vault() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {stakedNFTs.map((nft, index) => (
               <motion.div
                 key={nft.tokenId}
@@ -217,7 +217,7 @@ export default function Vault() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {walletNFTs.map((nft, index) => {
               const isTier1 = nft.tier === 'Lead';
               const isTier2 = nft.tier === 'Silver';

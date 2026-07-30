@@ -7,7 +7,7 @@ import { OnboardingModal } from '@/components/onboarding/OnboardingModal';
 import { ActivityTable } from '@/components/dashboard/ActivityTable';
 import { useAccount, useReadContract } from 'wagmi';
 import { CONTRACTS, TIERS } from '@/config/contracts';
-import { ELEMENT_NFT_ABI, YIELD_VAULT_ABI } from '@/config/abis';
+import { ELEMENT_NFT_ABI, YIELD_VAULT_ABI, GUILD_DISTRIBUTOR_ABI } from '@/config/abis';
 import { useProtocolStats } from '@/hooks/useProtocolStats';
 import { useSmartAccount } from '@/hooks/useSmartAccount';
 
@@ -23,15 +23,15 @@ export default function Dashboard() {
   });
 
   const { data: totalWeightGlobal } = useReadContract({
-    address: CONTRACTS.YieldVault.address,
-    abi: YIELD_VAULT_ABI,
-    functionName: 'sTotalWeight',
+    address: CONTRACTS.GuildDistributor.address,
+    abi: GUILD_DISTRIBUTOR_ABI as any,
+    functionName: 'totalWeightT1',
   });
 
   const { data: accRewardPerWeight } = useReadContract({
-    address: CONTRACTS.YieldVault.address,
-    abi: YIELD_VAULT_ABI,
-    functionName: 'sAccRewardPerWeight',
+    address: CONTRACTS.GuildDistributor.address,
+    abi: GUILD_DISTRIBUTOR_ABI as any,
+    functionName: 'rewardPerWeightPool1',
   });
 
   const { userStakingByTier } = useProtocolStats();
@@ -67,7 +67,7 @@ export default function Dashboard() {
 
   const formatYieldIndex = (value: any) => {
     if (!value) return '1.0000';
-    return (Number(value) / 1e18).toFixed(4);
+    return (Number(value) / 1e24).toFixed(4);
   };
   return (
     <div className="p-8 space-y-8">

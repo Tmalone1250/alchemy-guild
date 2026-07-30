@@ -6,8 +6,8 @@ export const YIELD_VAULT_ADDRESS       = "0x45959325A5606e20827e9Ef8bB0Ca253c584
 export const GUILD_TOKEN_ADDRESS       = "0xe2026C28F0F1DaFAbdd10823c54a411590b4f190" as const;
 export const CGUILD_ADDRESS            = "0xA6efeeBD751796031968Fb1F5EBdB373BCDC3e45" as const;
 export const GUILD_DAO_ADDRESS         = "0x3c83c1C5C5607d91A562b70cC281b08dfdaB422d" as const;
-export const ELEMENT_NFT_ADDRESS       = "0xf6f6147b1e930566642723722000690468853708" as const;
-export const ALCHEMIST_ADDRESS         = "0x946820228d8fFBD35CDe402333B7fBb2e7cBfC8c" as const;
+export const ELEMENT_NFT_ADDRESS       = "0x3A235044843e4EA0649FdD74A58151472E3Fef76" as const;
+export const ALCHEMIST_ADDRESS         = "0x27F937Ff2cC5DC21BD8AEc83972C6470aE12A9fb" as const;
 export const GUILD_DISTRIBUTOR_ADDRESS = "0xDf90762ccF9a199Ca8872C18E4f9C5DE42f2773e" as const;
 
 // ── Arbitrum Sepolia Ecosystem Constants ───────────────────────────────────────────
