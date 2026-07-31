@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useSmartAccount } from '@/hooks/useSmartAccount';
-import { useBalance, useSendTransaction } from 'wagmi';
+import { useBalance, useSendTransaction, usePublicClient } from 'wagmi';
 import { parseEther } from 'viem';
 import { toast } from 'sonner';
 import { Loader2, ArrowRight, Wallet } from 'lucide-react';
@@ -19,6 +19,8 @@ export function OnboardingModal() {
     });
 
     const { sendTransactionAsync, isPending } = useSendTransaction();
+
+    const publicClient = usePublicClient();
 
     useEffect(() => {
         // Only show if ready, balance loaded, and balance < 0.002 ETH
@@ -38,9 +40,15 @@ export function OnboardingModal() {
     const handleDeposit = async () => {
         if (!smartAccountAddress) return;
         try {
+            const feeData = await publicClient?.estimateFeesPerGas();
+            const maxFeePerGas = feeData?.maxFeePerGas ? (feeData.maxFeePerGas * 120n) / 100n : undefined;
+            const maxPriorityFeePerGas = feeData?.maxPriorityFeePerGas ? (feeData.maxPriorityFeePerGas * 120n) / 100n : undefined;
+
             const hash = await sendTransactionAsync({
                 to: smartAccountAddress,
                 value: parseEther('0.002'), // Suggest 0.002 ETH for a good start
+                maxFeePerGas,
+                maxPriorityFeePerGas,
             });
             toast.success('Deposit initiated! Welcome to the Guild.');
             setIsOpen(false);
