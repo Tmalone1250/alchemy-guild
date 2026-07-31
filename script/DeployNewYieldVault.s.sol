@@ -18,7 +18,7 @@ contract DeployNewYieldVault is Script {
         address pool = 0x66EEAB70aC52459Dd74C6AD50D578Ef76a441bbf; // USDC/WETH 0.3% Pool on Arbitrum Sepolia
         address weth = 0x980B62Da83eFf3D4576C647993b0c1D7faf17c73;
         address usdc = 0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d;
-        address paymaster = 0x353A1d7795bAdA4727179c09216b0e7DEE8B83D3; // Placeholder or existing paymaster
+        address paymaster = 0xa9924829148A1a1Bd057EAC11B448084cDCbC60a; // Correct Alchemy Paymaster
         
         // Account Abstraction v0.6 EntryPoint (Standard across EVM chains)
         address entryPoint = 0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789; 

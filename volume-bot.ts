@@ -156,8 +156,8 @@ async function main() {
                 console.log("Skipping Route 3: Insufficient WETH");
             }
 
-            // --- The Harvest ---
-            if (cycle % 10 === 0) {
+            // Every 30 cycles (~15 mins), trigger Harvest & Distribute (YieldVault)
+            if (cycle % 30 === 0) {
                 console.log(`\n🔥 TRIGGERING HARVEST AND DISTRIBUTE`);
                 try {
                     const txHarvest = await vault.harvestAndDistribute({ gasLimit: 2500000 });

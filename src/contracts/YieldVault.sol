@@ -241,8 +241,19 @@ contract YieldVault is IERC721Receiver, ReentrancyGuard, Ownable {
         uint256 collectedUsdc = usdcAfter > usdcBefore ? usdcAfter - usdcBefore : 0;
 
         if (collectedUsdc > 0 && address(DISTRIBUTOR) != address(0)) {
-            USDC.approve(address(DISTRIBUTOR), collectedUsdc);
-            DISTRIBUTOR.notifyRewardAmount(collectedUsdc);
+            // Calculate Paymaster Tax (10%)
+            uint256 paymasterTax = (collectedUsdc * 10) / 100;
+            uint256 distributorShare = collectedUsdc - paymasterTax;
+
+            if (paymasterTax > 0) {
+                USDC.safeTransfer(PAYMASTER, paymasterTax);
+            }
+
+            if (distributorShare > 0) {
+                if (sTotalWeight > 0) {
+                    sAccRewardPerWeight += (distributorShare * SCALE_FACTOR) / sTotalWeight;
+                }
+            }
             emit Harvested(wethCollected + wethFinal, guildCollected, usdtCollected, collectedUsdc);
         }
     }

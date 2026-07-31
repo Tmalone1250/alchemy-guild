@@ -36,18 +36,15 @@ export default function Analytics() {
 
   const {
     guildBurned,
-    usdcDepth,
-    wethDepth,
     isLoading: isOracleLoading,
   } = useGuildOracle();
 
   const isLoading = isStatsLoading || isOracleLoading;
 
   const stakingData = TIERS.map(tier => {
-    const userCount = targetAddress ? (userStakingByTier[tier.id]?.[targetAddress.toLowerCase()] || 0) : 0;
     return {
       name: tier.name,
-      staked: userCount,
+      staked: stakingByTier[tier.id] || 0,
     };
   });
 
@@ -102,7 +99,7 @@ export default function Analytics() {
         <StatCard
           title="Protocol TVL (Vault)"
           value={`${parseFloat(tvl).toFixed(2)} USDC`}
-          subtitle="Active Yield-Generating TVL"
+          subtitle="Protocol Treasury Value"
           icon={Coins}
         />
         <StatCard
@@ -114,60 +111,11 @@ export default function Analytics() {
       </div>
 
       {/* Deep-Dive Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Live TradingView Price Chart */}
-        <div className="lg:col-span-2">
+        <div className="w-full">
           <PriceChart totalBurned={guildBurned} />
         </div>
-
-        {/* Protocol-Owned Liquidity (POL) Depth */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="glass-panel p-6 col-span-1 border border-primary/20 bg-black/60 rounded-xl"
-        >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-              <Compass className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-foreground font-cinzel">Liquidity Depth</h3>
-              <p className="text-xs text-muted-foreground">Treasury backing reserves</p>
-            </div>
-          </div>
-          <div className="space-y-6">
-            <div className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.05] space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">USDC Reserves</span>
-                <span className="font-mono font-semibold text-foreground">
-                  {usdcDepth.toLocaleString(undefined, { minimumFractionDigits: 2 })} USDC
-                </span>
-              </div>
-              <div className="w-full bg-white/[0.05] h-1.5 rounded-full overflow-hidden">
-                <div className="bg-primary h-full" style={{ width: '100%' }}></div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.05] space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">WETH Reserves</span>
-                <span className="font-mono font-semibold text-foreground">
-                  {wethDepth.toLocaleString(undefined, { minimumFractionDigits: 4 })} WETH
-                </span>
-              </div>
-              <div className="w-full bg-white/[0.05] h-1.5 rounded-full overflow-hidden">
-                <div className="bg-primary/60 h-full" style={{ width: '100%' }}></div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs text-amber-500 flex gap-3">
-              <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-              <p>
-                These token reserves represent the protocol-owned liquidity backing element mints, serving as a hard price floor for the ecosystem.
-              </p>
-            </div>
-          </div>
-        </motion.div>
       </div>
 
       {/* Yield & Staking Grid */}

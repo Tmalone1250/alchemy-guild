@@ -22,7 +22,7 @@ export default function Vault() {
   // Check if Vault is approved for all (optimization: check individual if needed, but isApprovedForAll is better UX for multiple stakes)
   // For simplicity in this specific flow, we might just check/approve the specific token or all.
   // Let's use isApprovedForAll to minimize transactions if they stake multiple.
-  const { isApprovedForAll } = useNFTApproval(smartAccountAddress || '', CONTRACTS.GuildDistributor.address);
+  const { isApprovedForAll } = useNFTApproval(smartAccountAddress || '', CONTRACTS.YieldVault.address);
 
   // Track pending action for toasts
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -34,32 +34,11 @@ export default function Vault() {
   const stakedNFTs = nfts.filter((nft) => nft.staked);
   const walletNFTs = nfts.filter((nft) => !nft.staked);
 
-  // 3-3-1 Loadout Limits
-  const loadoutContracts = useMemo(() => {
-    if (!smartAccountAddress) return [];
-    return [
-      { address: CONTRACTS.GuildDistributor.address, abi: GUILD_DISTRIBUTOR_ABI as any, functionName: 'stakedLeadCount', args: [smartAccountAddress] },
-      { address: CONTRACTS.GuildDistributor.address, abi: GUILD_DISTRIBUTOR_ABI as any, functionName: 'stakedSilverCount', args: [smartAccountAddress] },
-      { address: CONTRACTS.GuildDistributor.address, abi: GUILD_DISTRIBUTOR_ABI as any, functionName: 'stakedGoldCount', args: [smartAccountAddress] },
-    ];
-  }, [smartAccountAddress]);
+  const leadCount = stakedNFTs.filter(n => n.tier === 'Lead').length;
+  const silverCount = stakedNFTs.filter(n => n.tier === 'Silver').length;
+  const goldCount = stakedNFTs.filter(n => n.tier === 'Gold').length;
 
-  const { data: loadoutCounts } = useReadContracts({
-    contracts: loadoutContracts as any
-  });
-  
-  const [leadCount, silverCount, goldCount] = (loadoutCounts?.map(res => Number(res.result) || 0)) || [0, 0, 0];
-
-  // Real-Time Polling for Yield
-  const { data: earnedData } = useReadContract({
-    address: CONTRACTS.GuildDistributor.address,
-    abi: GUILD_DISTRIBUTOR_ABI as any,
-    functionName: 'earnedUser',
-    args: smartAccountAddress ? [smartAccountAddress] : undefined,
-    query: { refetchInterval: 5000 }
-  });
-
-  const totalPendingYield = earnedData ? parseFloat(formatUnits(earnedData as bigint, 6)) : 0;
+  const totalPendingYield = stakedNFTs.reduce((acc, nft) => acc + parseFloat(nft.pendingYield || '0'), 0);
 
   const handleAction = async (action: 'stake' | 'unstake' | 'claim', tokenId: number) => {
     const toastId = `${action}-${tokenId}`; // Unique ID per token action
@@ -72,8 +51,8 @@ export default function Vault() {
         if (!isApprovedForAll) {
           const approveId = 'approve-vault';
           setPendingAction(approveId);
-          toast.loading(`Please approve the Distributor contract first...`, { id: approveId });
-          await setApprovalForAll(CONTRACTS.GuildDistributor.address, true);
+          toast.loading(`Please approve the YieldVault contract first...`, { id: approveId });
+          await setApprovalForAll(CONTRACTS.YieldVault.address, true);
           return;
         }
 

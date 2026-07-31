@@ -11,11 +11,13 @@ contract SeedVault is Script {
     address constant USDC_ADDRESS = 0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d;
     
     // Using the recently deployed YieldVault address on Arbitrum Sepolia
-    address payable constant VAULT_ADDRESS = payable(0x2cb47bD113d4A2EA5cAd660aaC675ebCdd190B2A);
+    address payable constant VAULT_ADDRESS = payable(0x7a535fFd02d6C00F9131F31e435Ce5cf321bF9E6);
 
     function run() external {
         uint256 botPrivateKey = vm.envOr("BOT_PRIVATE_KEY", uint256(0));
         require(botPrivateKey != 0, "BOT_PRIVATE_KEY not set");
+        uint256 deployerPrivateKey = vm.envOr("PRIVATE_KEY", uint256(0));
+        require(deployerPrivateKey != 0, "PRIVATE_KEY not set");
         
         vm.startBroadcast(botPrivateKey);
 
@@ -25,11 +27,12 @@ contract SeedVault is Script {
 
         IERC20(WETH_ADDRESS).transfer(VAULT_ADDRESS, seedWeth);
         IERC20(USDC_ADDRESS).transfer(VAULT_ADDRESS, seedUsdc);
+        vm.stopBroadcast();
         
+        vm.startBroadcast(deployerPrivateKey);
         YieldVault(VAULT_ADDRESS).executeRebalanceDirect(-200000, 200000);
+        vm.stopBroadcast();
         
         console.log("Seeded Vault with 0.4 WETH and 1600 USDC");
-        
-        vm.stopBroadcast();
     }
 }

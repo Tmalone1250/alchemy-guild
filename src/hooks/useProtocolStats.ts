@@ -124,24 +124,24 @@ export function useProtocolStats() {
                 await new Promise(r => setTimeout(r, 200));
 
                 const stakedLogs = await fetchLogsInChunksParallel(
-                    CONTRACTS.GuildDistributor.address as `0x${string}`,
-                    parseAbiItem('event Staked(address indexed user, uint256 tokenId, uint8 tier, uint256 weight)'),
+                    CONTRACTS.YieldVault.address as `0x${string}`,
+                    parseAbiItem('event Staked(address indexed user, uint256 indexed tokenId, uint8 tier, uint256 weight)'),
                     DEPLOYMENT_BLOCK,
                     currentBlock
                 );
                 await new Promise(r => setTimeout(r, 200));
 
                 const unstakedLogs = await fetchLogsInChunksParallel(
-                    CONTRACTS.GuildDistributor.address as `0x${string}`,
-                    parseAbiItem('event Withdrawn(address indexed user, uint256 tokenId, uint8 tier, uint256 weight)'),
+                    CONTRACTS.YieldVault.address as `0x${string}`,
+                    parseAbiItem('event Unstaked(address indexed user, uint256 indexed tokenId, uint256 reward)'),
                     DEPLOYMENT_BLOCK,
                     currentBlock
                 );
                 await new Promise(r => setTimeout(r, 200));
 
                 const yieldLogs = await fetchLogsInChunksParallel(
-                    CONTRACTS.GuildDistributor.address as `0x${string}`,
-                    parseAbiItem('event RewardPaid(address indexed user, uint256 reward)'),
+                    CONTRACTS.YieldVault.address as `0x${string}`,
+                    parseAbiItem('event YieldClaimed(address indexed user, uint256 indexed tokenId, uint256 reward)'),
                     DEPLOYMENT_BLOCK,
                     currentBlock
                 );
@@ -209,17 +209,13 @@ export function useProtocolStats() {
                 allRewardEvents.forEach(e => {
                     if (e.reward) {
                         cumulativeYield += Number(e.reward) / 1e6;
-                        // Subtract the 2500 USDC initial seed test from the display data
-                        const displayYield = Math.max(0, cumulativeYield - 2500);
-                        if (cumulativeYield >= 2500) {
-                            yieldHistoryPoints.push({
-                                date: `Block ${e.blockNumber}`,
-                                value: displayYield
-                            });
-                        }
+                        yieldHistoryPoints.push({
+                            date: `Block ${e.blockNumber}`,
+                            value: cumulativeYield
+                        });
                     }
                 });
-                const finalTotalYield = Math.max(0, cumulativeYield - 2500);
+                const finalTotalYield = cumulativeYield;
 
                 const sampledHistory = yieldHistoryPoints.filter((_, i) => i % Math.max(1, Math.floor(yieldHistoryPoints.length / 20)) === 0);
                 if (yieldHistoryPoints.length > 0 && sampledHistory[sampledHistory.length - 1] !== yieldHistoryPoints[yieldHistoryPoints.length - 1]) {
@@ -251,7 +247,7 @@ export function useProtocolStats() {
                     address: CONTRACTS.USDC.address as `0x${string}`,
                     abi: [parseAbiItem('function balanceOf(address) view returns (uint256)')],
                     functionName: 'balanceOf',
-                    args: [CONTRACTS.GuildDistributor.address]
+                    args: [CONTRACTS.YieldVault.address]
                 }) as bigint;
 
                 return {

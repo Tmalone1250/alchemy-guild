@@ -29,9 +29,9 @@ export default function Dashboard() {
   });
 
   const { data: accRewardPerWeight } = useReadContract({
-    address: CONTRACTS.GuildDistributor.address,
-    abi: GUILD_DISTRIBUTOR_ABI as any,
-    functionName: 'rewardPerWeightPool1',
+    address: CONTRACTS.YieldVault.address,
+    abi: YIELD_VAULT_ABI,
+    functionName: 'sAccRewardPerWeight',
   });
 
   const { userStakingByTier } = useProtocolStats();
@@ -56,7 +56,7 @@ export default function Dashboard() {
     address: CONTRACTS.USDC.address,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
-    args: [CONTRACTS.GuildDistributor.address],
+    args: [CONTRACTS.YieldVault.address],
   });
 
   const calculateActiveYieldPool = () => {
@@ -67,7 +67,7 @@ export default function Dashboard() {
 
   const formatYieldIndex = (value: any) => {
     if (!value) return '1.0000';
-    return (Number(value) / 1e24).toFixed(4);
+    return (1 + Number(value) / 1e18).toFixed(4);
   };
   return (
     <div className="p-8 space-y-8">

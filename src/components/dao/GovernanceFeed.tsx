@@ -352,7 +352,7 @@ export function GovernanceFeed() {
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 flex items-start gap-3 mt-4">
               <Flame className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 animate-bounce" />
               <div className="text-xs text-amber-200/90 leading-relaxed">
-                <strong>Deflationary Governance Enforcement:</strong> Creating this proposal will permanently burn exactly <span className="font-mono font-bold text-white">500 cGUILD</span> (`PROPOSAL_THRESHOLD = 500 * 10^18`) from your confidential enclave handle.
+                <strong>Deflationary Governance Enforcement:</strong> Creating this proposal will permanently burn exactly <span className="font-mono font-bold text-white">500 cGUILD</span> from your confidential enclave handle.
               </div>
             </div>
 

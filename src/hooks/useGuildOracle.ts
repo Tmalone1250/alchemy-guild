@@ -56,13 +56,13 @@ export function useGuildOracle() {
         address: USDC_ADDRESS,
         abi: erc20Abi,
         functionName: 'balanceOf',
-        args: [CONTRACTS.Treasury.address],
+        args: [CONTRACTS.YieldVault.address],
       },
       {
         address: WETH_ADDRESS,
         abi: erc20Abi,
         functionName: 'balanceOf',
-        args: [CONTRACTS.Treasury.address],
+        args: [CONTRACTS.YieldVault.address],
       }
     ] as const,
   });

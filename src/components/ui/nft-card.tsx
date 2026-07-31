@@ -137,7 +137,7 @@ export function NFTCard({ nft, variant = 'inventory', selected, onAction, onSele
           <div className="pt-2 border-t border-border">
             <p className="text-xs text-muted-foreground">Pending Yield</p>
             <p className="text-lg font-mono text-gold-gradient">
-              {nft.pendingYield} <span className="text-xs text-muted-foreground">GOLD</span>
+              {nft.pendingYield} <span className="text-xs text-muted-foreground">USDC</span>
             </p>
           </div>
         )}

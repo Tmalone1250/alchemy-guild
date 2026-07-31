@@ -2,19 +2,19 @@
 // Full migration: 2026-07-15 — Migrated to Arbitrum Sepolia for iExec Nox TEE precompile architecture
 
 // ── Deployed Contract Addresses (To be updated post Arbitrum Sepolia redeployment) ────────────────
-export const YIELD_VAULT_ADDRESS       = "0x45959325A5606e20827e9Ef8bB0Ca253c584c0C4" as const;
+export const YIELD_VAULT_ADDRESS       = "0xF468Ec2442E6b5206eA39AfAbC57A58773D3f8A3" as const;
 export const GUILD_TOKEN_ADDRESS       = "0x90d938A9f1e4a77d536d9f76Acc4B9520b1bc451" as const;
 export const CGUILD_ADDRESS            = "0xA6efeeBD751796031968Fb1F5EBdB373BCDC3e45" as const;
 export const GUILD_DAO_ADDRESS         = "0x3c83c1C5C5607d91A562b70cC281b08dfdaB422d" as const;
 export const ELEMENT_NFT_ADDRESS       = "0x3A235044843e4EA0649FdD74A58151472E3Fef76" as const;
 export const ALCHEMIST_ADDRESS         = "0x27F937Ff2cC5DC21BD8AEc83972C6470aE12A9fb" as const;
-export const GUILD_DISTRIBUTOR_ADDRESS = "0xDf90762ccF9a199Ca8872C18E4f9C5DE42f2773e" as const;
+export const GUILD_DISTRIBUTOR_ADDRESS = "0xe71283Fd6cE7BB30243bb1fba0eC839A56DD9d62" as const;
 
 // ── Arbitrum Sepolia Ecosystem Constants ───────────────────────────────────────────
 export const WETH_ADDRESS              = "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73" as const;
 export const USDC_ADDRESS              = "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d" as const;
 export const USDT_ADDRESS              = "0xD7635043c67Ce3E5aA3df322E047C07E56687de7" as const;
-export const PAYMASTER_ADDRESS         = "0xa9924829148A1a1Bd057EAC11B448084cDCbC60a" as const;
+export const PAYMASTER_ADDRESS         = "0x1083E73C1149D5c96c3b75C1822089923ed7553E" as const;
 
 // ── Governance Parameters (match verified contract constants) ──────────────────
 export const PROPOSAL_THRESHOLD_cGUILD = 500n * 10n ** 18n; // 500 cGUILD required to create proposal

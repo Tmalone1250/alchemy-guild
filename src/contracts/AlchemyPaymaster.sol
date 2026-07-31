@@ -69,17 +69,24 @@ contract AlchemyPaymaster is IPaymaster, Ownable {
         bytes32, /* userOpHash */
         uint256 maxCost
     ) internal view returns (bytes memory context, uint256 validationData) {
-        // Extract target address from callData (bytes 16-36)
-        address target = address(bytes20(userOp.callData[16:36]));
+        bytes4 selector = bytes4(userOp.callData[0:4]);
         
-        // 1. Verify target contract is whitelisted
-        require(sponsoredContracts[target], "Target not sponsored");
+        if (selector == 0x47e1da2a) {
+            // executeBatch(address[],uint256[],bytes[])
+            uint256 destsOffset = uint256(bytes32(userOp.callData[4:36]));
+            uint256 destsLength = uint256(bytes32(userOp.callData[4 + destsOffset : 4 + destsOffset + 32]));
+            
+            for (uint256 i = 0; i < destsLength; i++) {
+                address target = address(uint160(uint256(bytes32(userOp.callData[4 + destsOffset + 32 + (i * 32) : 4 + destsOffset + 64 + (i * 32)]))));
+                require(sponsoredContracts[target], "Target not sponsored in batch");
+            }
+        } else {
+            // Extract target address for single execute(address,uint256,bytes)
+            address target = address(bytes20(userOp.callData[16:36]));
+            require(sponsoredContracts[target], "Target not sponsored");
+        }
         
-        // 2. Gas limit check (removed to allow estimation)
-        // uint256 callGasLimit = uint256(uint128(uint256(userOp.accountGasLimits >> 128)));
-        // require(callGasLimit > 0, "Invalid gas limit");
-        
-        // 3. Ensure paymaster has enough balance to cover gas
+        // Ensure paymaster has enough balance to cover gas
         require(
             getDeposit() >= maxCost,
             "Paymaster: insufficient deposit"

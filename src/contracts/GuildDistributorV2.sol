@@ -109,7 +109,7 @@ contract GuildDistributorV2 is Ownable {
 
         // Dynamically calculate the transfer amount based on the $1 peg
         uint256 baseAmountForOneDollar = getDynamicMintReward();
-        uint256 transferAmount = baseAmountForOneDollar * targetUsdValue;
+        uint256 transferAmount = (baseAmountForOneDollar * targetUsdValue) / 1e18;
 
         uint256 balance = guildToken.balanceOf(address(this));
         if (balance < transferAmount) {
